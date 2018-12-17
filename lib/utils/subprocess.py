@@ -61,7 +61,9 @@ def process_in_parallel(
         assert -1 not in gpu_inds, \
             'Hiding GPU indices using the \'-1\' index is not supported'
     else:
+        # gpu_inds = range(NUM_GPUS)
         gpu_inds = range(cfg.NUM_GPUS)
+
     gpu_inds = list(gpu_inds)
     # Run the binary in cfg.NUM_GPUS subprocesses
     for i, gpu_ind in enumerate(gpu_inds):

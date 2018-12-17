@@ -1,22 +1,30 @@
 #!/usr/bin/env bash
-
-CUDA_PATH=/usr/local/cuda/
+alias python='python3'
+CUDA_PATH=/usr/local/cuda-9.1
+export PATH=/usr/local/cuda-9.1/bin:$PATH
 
 python setup.py build_ext --inplace
 rm -rf build
 
 # Choose cuda arch as you need
-CUDA_ARCH="-gencode arch=compute_30,code=sm_30 \
-           -gencode arch=compute_35,code=sm_35 \
-           -gencode arch=compute_50,code=sm_50 \
-           -gencode arch=compute_52,code=sm_52 \
-           -gencode arch=compute_60,code=sm_60 \
-           -gencode arch=compute_61,code=sm_61 "
-#          -gencode arch=compute_70,code=sm_70 "
+CUDA_ARCH="-gencode arch=compute_61,code=sm_61 "
+# 	   -gencode arch=compute_30,code=sm_30 \
+#      -gencode arch=compute_35,code=sm_35 \
+#      -gencode arch=compute_50,code=sm_50 \
+#      -gencode arch=compute_52,code=sm_52 \
+#      -gencode arch=compute_60,code=sm_60 \
+#      -gencode arch=compute_70,code=sm_70 "
 
 # compile NMS
 cd model/nms/src
 echo "Compiling nms kernels by nvcc..."
+OUTPUT="$(nvcc --version)"
+echo "${OUTPUT}"
+echo "${LD_LIBRARY_PATH}"
+echo "${PATH}"
+
+echo ""
+echo ""
 nvcc -c -o nms_cuda_kernel.cu.o nms_cuda_kernel.cu \
 	 -D GOOGLE_CUDA=1 -x cu -Xcompiler -fPIC $CUDA_ARCH
 
@@ -32,14 +40,14 @@ nvcc -c -o roi_pooling.cu.o roi_pooling_kernel.cu \
 cd ../
 python build.py
 
-# # compile roi_align
-# cd ../../
-# cd model/roi_align/src
-# echo "Compiling roi align kernels by nvcc..."
-# nvcc -c -o roi_align_kernel.cu.o roi_align_kernel.cu \
-# 	 -D GOOGLE_CUDA=1 -x cu -Xcompiler -fPIC $CUDA_ARCH
-# cd ../
-# python build.py
+# compile roi_align
+cd ../../
+cd model/roi_align/src
+echo "Compiling roi align kernels by nvcc..."
+nvcc -c -o roi_align_kernel.cu.o roi_align_kernel.cu \
+	 -D GOOGLE_CUDA=1 -x cu -Xcompiler -fPIC $CUDA_ARCH
+cd ../
+python build.py
 
 # compile roi_crop
 cd ../../
