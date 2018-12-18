@@ -63,6 +63,15 @@ def combined_roidb_for_training(dataset_names, proposal_files):
     roidb = roidbs[0]
     for r in roidbs[1:]:
         roidb.extend(r)
+    # x =1
+    # for entry in roidb:
+    #     if x==1:
+    #         print("Entry type, and len: ",type(entry),len(entry))
+    #         # print("Roidb Entry attributes: ", dir(entry))
+    #         for k,v in entry.items():
+    #             print("Key: ", k)
+    #             print(type(v), " with value: ", v)
+    #         x=0
     roidb = filter_for_training(roidb)
 
     if cfg.TRAIN.ASPECT_GROUPING or cfg.TRAIN.ASPECT_CROPPING:

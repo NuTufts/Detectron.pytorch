@@ -38,6 +38,12 @@ RAW_DIR = 'raw_dir'
 
 # Available datasets
 DATASETS = {
+    'particle_physics_train': {
+        IM_DIR:
+            _DATA_DIR + '/particle_physics_train/root_files/',
+        ANN_FN:
+            _DATA_DIR + '/particle_physics_train/annotations/instances_train2014.json'
+    },
     'cityscapes_fine_instanceonly_seg_train': {
         IM_DIR:
             _DATA_DIR + '/cityscapes/images',

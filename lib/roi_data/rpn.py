@@ -58,6 +58,7 @@ def add_rpn_blobs(blobs, im_scales, roidb):
                                               cfg.RPN.ASPECT_RATIOS)
         all_anchors = foa.field_of_anchors
 
+    
     for im_i, entry in enumerate(roidb):
         scale = im_scales[im_i]
         im_height = np.round(entry['height'] * scale)
