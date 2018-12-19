@@ -2,12 +2,6 @@
 #Joshua Mills, Tufts University
 #You will have to have larcv
 
-#larcvdataset original imports
-import os,time
-import ROOT
-from larcv import larcv
-import numpy as np
-from torch.utils.data import Dataset
 
 #json_dataset original imports
 from __future__ import absolute_import
@@ -37,9 +31,16 @@ from .dataset_catalog import DATASETS
 from .dataset_catalog import IM_DIR
 from .dataset_catalog import IM_PREFIX
 
+#larcvdataset original imports
+import os,time
+# import ROOT
+# from larcv import larcv
+import numpy as np
+from torch.utils.data import Dataset
+
 logger = logging.getLogger(__name__)
 
-class LArCVDataset(Dataset):
+class LArCVDataset(object):
     """ LArCV2 data set interface for PyTorch"""
 
     def __init__(self, name):
@@ -47,8 +48,8 @@ class LArCVDataset(Dataset):
             'Unknown dataset name: {}'.format(name)
         assert os.path.exists(DATASETS[name][IM_DIR]), \
             'Image directory \'{}\' not found'.format(DATASETS[name][IM_DIR])
-        assert os.path.exists(DATASETS[name][ANN_FN]), \
-            'Annotation file \'{}\' not found'.format(DATASETS[name][ANN_FN])
+        # assert os.path.exists(DATASETS[name][ANN_FN]), \
+        #     'Annotation file \'{}\' not found'.format(DATASETS[name][ANN_FN])
         logger.debug('Creating: {}'.format(name))
         self.name = name
         self.image_directory = DATASETS[name][IM_DIR]
@@ -108,7 +109,7 @@ class LArCVDataset(Dataset):
             proposal_limit=-1,
             crowd_filter_thresh=0
         ):
-        """Return an roidb corresponding to the json dataset. Optionally:
+        """Return an roidb corresponding to the larcv dataset. Optionally:
            - include ground truth boxes in the roidb
            - add proposals specified in a proposals file
            - filter proposals based on a minimum side length
