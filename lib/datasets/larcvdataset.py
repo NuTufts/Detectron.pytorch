@@ -33,8 +33,8 @@ from .dataset_catalog import IM_PREFIX
 
 #larcvdataset original imports
 import os,time
-# import ROOT
-# from larcv import larcv
+import ROOT
+from larcv import larcv
 import numpy as np
 from torch.utils.data import Dataset
 
@@ -48,32 +48,65 @@ class LArCVDataset(object):
             'Unknown dataset name: {}'.format(name)
         assert os.path.exists(DATASETS[name][IM_DIR]), \
             'Image directory \'{}\' not found'.format(DATASETS[name][IM_DIR])
+
+        # We don't have annotation files
         # assert os.path.exists(DATASETS[name][ANN_FN]), \
         #     'Annotation file \'{}\' not found'.format(DATASETS[name][ANN_FN])
+
+
+        #could replace with loops for lots of files in dir? -j
+        self.file_path =  [DATASETS[name][IM_DIR]+"croppedmask_lf.root"]
+        # self.file = ROOT.TFile(self.file_path[0])
+        print('')
+        print('')
+        #create TChains
+        #this is like our version of COCO jpg image:
+        image2d_adc_crop_chain = ROOT.TChain("image2d_adc_tree")
+        #this is like our version of COCO annotations:
+        clustermask_cluster_crop_chain = ROOT.TChain("clustermask_masks_tree")
+        #fill TChains
+        for file in self.file_path: image2d_adc_crop_chain.AddFile(file)
+        print ('Found', image2d_adc_crop_chain.GetEntries(), 'entries in image2d adc values')
+        for file in self.file_path: clustermask_cluster_crop_chain.AddFile(file)
+        print ('Found', clustermask_cluster_crop_chain.GetEntries(), 'entries in clustermask clusters cropped ')
+        print('')
+        print('')
+
+
         logger.debug('Creating: {}'.format(name))
         self.name = name
         self.image_directory = DATASETS[name][IM_DIR]
         self.image_prefix = (
             '' if IM_PREFIX not in DATASETS[name] else DATASETS[name][IM_PREFIX]
         )
-        self.COCO = COCO(DATASETS[name][ANN_FN])
+        # self.COCO = COCO(DATASETS[name][ANN_FN])
         self.debug_timer = Timer()
         # Set up dataset classes
-        category_ids = self.COCO.getCatIds()
-        categories = [c['name'] for c in self.COCO.loadCats(category_ids)]
+        category_ids = [1,2,3,4,5,6]
+        # category_ids = self.COCO.getCatIds()
+        categories = ['Cosmic', 'Neutron', 'Proton', 'Electron', 'Neutrino', 'Other']
+        # categories = [c['name'] for c in self.COCO.loadCats(category_ids)]
         self.category_to_id_map = dict(zip(categories, category_ids))
         self.classes = ['__background__'] + categories
         self.num_classes = len(self.classes)
-        self.json_category_id_to_contiguous_id = {
-            v: i + 1
-            for i, v in enumerate(self.COCO.getCatIds())
-        }
-        self.contiguous_category_id_to_json_id = {
-            v: k
-            for k, v in self.json_category_id_to_contiguous_id.items()
-        }
-        self._init_keypoints()
-
+        # print(category_ids)
+        # print(categories)
+        # print(self.classes)
+        # self.json_category_id_to_contiguous_id = {
+        #     v: i + 1
+        #     for i, v in enumerate(self.COCO.getCatIds())
+        # }
+        # self.contiguous_category_id_to_json_id = {
+        #     v: k
+        #     for k, v in self.json_category_id_to_contiguous_id.items()
+        # }
+        #Note we don't need these, but for now I include them so that we don't have to find where they get used -j
+        self.json_category_id_to_contiguous_id = {1:1 , 2:2, 3:3, 4:4, 5:5, 6:6}
+        self.contiguous_category_id_to_json_id = {1:1 , 2:2, 3:3, 4:4, 5:5, 6:6}
+        # I don't think we need this, -j
+        # self._init_keypoints()
+        # print(self.json_category_id_to_contiguous_id)
+        # print(self.contiguous_category_id_to_json_id)
         # # Set cfg.MODEL.NUM_CLASSES
         # if cfg.MODEL.NUM_CLASSES != -1:
         #     assert cfg.MODEL.NUM_CLASSES == 2 if cfg.MODEL.KEYPOINTS_ON else self.num_classes, \
@@ -348,39 +381,39 @@ class LArCVDataset(object):
         if crowd_thresh > 0:
             _filter_crowd_proposals(roidb, crowd_thresh)
 
-    def _init_keypoints(self):
-        """Initialize COCO keypoint information."""
-        self.keypoints = None
-        self.keypoint_flip_map = None
-        self.keypoints_to_id_map = None
-        self.num_keypoints = 0
-        # Thus far only the 'person' category has keypoints
-        if 'person' in self.category_to_id_map:
-            cat_info = self.COCO.loadCats([self.category_to_id_map['person']])
-        else:
-            return
-
-        # Check if the annotations contain keypoint data or not
-        if 'keypoints' in cat_info[0]:
-            keypoints = cat_info[0]['keypoints']
-            self.keypoints_to_id_map = dict(
-                zip(keypoints, range(len(keypoints))))
-            self.keypoints = keypoints
-            self.num_keypoints = len(keypoints)
-            if cfg.KRCNN.NUM_KEYPOINTS != -1:
-                assert cfg.KRCNN.NUM_KEYPOINTS == self.num_keypoints, \
-                    "number of keypoints should equal when using multiple datasets"
-            else:
-                cfg.KRCNN.NUM_KEYPOINTS = self.num_keypoints
-            self.keypoint_flip_map = {
-                'left_eye': 'right_eye',
-                'left_ear': 'right_ear',
-                'left_shoulder': 'right_shoulder',
-                'left_elbow': 'right_elbow',
-                'left_wrist': 'right_wrist',
-                'left_hip': 'right_hip',
-                'left_knee': 'right_knee',
-                'left_ankle': 'right_ankle'}
+    # def _init_keypoints(self):
+    #     """Initialize COCO keypoint information."""
+    #     self.keypoints = None
+    #     self.keypoint_flip_map = None
+    #     self.keypoints_to_id_map = None
+    #     self.num_keypoints = 0
+    #     # Thus far only the 'person' category has keypoints
+    #     if 'person' in self.category_to_id_map:
+    #         cat_info = self.COCO.loadCats([self.category_to_id_map['person']])
+    #     else:
+    #         return
+    #
+    #     # Check if the annotations contain keypoint data or not
+    #     if 'keypoints' in cat_info[0]:
+    #         keypoints = cat_info[0]['keypoints']
+    #         self.keypoints_to_id_map = dict(
+    #             zip(keypoints, range(len(keypoints))))
+    #         self.keypoints = keypoints
+    #         self.num_keypoints = len(keypoints)
+    #         if cfg.KRCNN.NUM_KEYPOINTS != -1:
+    #             assert cfg.KRCNN.NUM_KEYPOINTS == self.num_keypoints, \
+    #                 "number of keypoints should equal when using multiple datasets"
+    #         else:
+    #             cfg.KRCNN.NUM_KEYPOINTS = self.num_keypoints
+    #         self.keypoint_flip_map = {
+    #             'left_eye': 'right_eye',
+    #             'left_ear': 'right_ear',
+    #             'left_shoulder': 'right_shoulder',
+    #             'left_elbow': 'right_elbow',
+    #             'left_wrist': 'right_wrist',
+    #             'left_hip': 'right_hip',
+    #             'left_knee': 'right_knee',
+    #             'left_ankle': 'right_ankle'}
 
     def _get_gt_keypoints(self, obj):
         """Return ground truth keypoints."""
