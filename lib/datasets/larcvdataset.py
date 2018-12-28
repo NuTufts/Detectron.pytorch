@@ -55,22 +55,24 @@ class LArCVDataset(object):
 
 
         #could replace with loops for lots of files in dir? -j
-        self.file_path =  [DATASETS[name][IM_DIR]+"croppedmask_lf.root"]
-        # self.file = ROOT.TFile(self.file_path[0])
-        print('')
-        print('')
-        #create TChains
-        #this is like our version of COCO jpg image:
-        image2d_adc_crop_chain = ROOT.TChain("image2d_adc_tree")
-        #this is like our version of COCO annotations:
-        clustermask_cluster_crop_chain = ROOT.TChain("clustermask_masks_tree")
-        #fill TChains
-        for file in self.file_path: image2d_adc_crop_chain.AddFile(file)
-        print ('Found', image2d_adc_crop_chain.GetEntries(), 'entries in image2d adc values')
-        for file in self.file_path: clustermask_cluster_crop_chain.AddFile(file)
-        print ('Found', clustermask_cluster_crop_chain.GetEntries(), 'entries in clustermask clusters cropped ')
-        print('')
-        print('')
+        # self.file_path =  [DATASETS[name][IM_DIR]+"croppedmask_lf.root"]
+        # # self.file = ROOT.TFile(self.file_path[0])
+        # print('')
+        # print('')
+        # #create TChains
+        # #this is like our version of COCO jpg image:
+        # image2d_adc_crop_chain = ROOT.TChain("image2d_adc_tree")
+        # #this is like our version of COCO annotations:
+        # clustermask_cluster_crop_chain = ROOT.TChain("clustermask_masks_tree")
+        # #fill TChains
+        # for file in self.file_path: image2d_adc_crop_chain.AddFile(file)
+        # print ('Found', image2d_adc_crop_chain.GetEntries(), 'entries in image2d adc values')
+        # for file in self.file_path: clustermask_cluster_crop_chain.AddFile(file)
+        # print ('Found', clustermask_cluster_crop_chain.GetEntries(), 'entries in clustermask clusters cropped ')
+        # print('')
+        # print('')
+
+    
 
 
         logger.debug('Creating: {}'.format(name))

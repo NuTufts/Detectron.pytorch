@@ -73,9 +73,9 @@ class JsonDataset(object):
         categories = [c['name'] for c in self.COCO.loadCats(category_ids)]
         self.category_to_id_map = dict(zip(categories, category_ids))
         self.classes = ['__background__'] + categories
-        print(category_ids)
-        print(categories)
-        print(self.classes)
+        # print(category_ids)
+        # print(categories)
+        # print(self.classes)
         self.num_classes = len(self.classes)
         self.json_category_id_to_contiguous_id = {
             v: i + 1
@@ -86,8 +86,8 @@ class JsonDataset(object):
             for k, v in self.json_category_id_to_contiguous_id.items()
         }
         self._init_keypoints()
-        print(self.json_category_id_to_contiguous_id)
-        print(self.contiguous_category_id_to_json_id)
+        # print(self.json_category_id_to_contiguous_id)
+        # print(self.contiguous_category_id_to_json_id)
         # # Set cfg.MODEL.NUM_CLASSES
         # if cfg.MODEL.NUM_CLASSES != -1:
         #     assert cfg.MODEL.NUM_CLASSES == 2 if cfg.MODEL.KEYPOINTS_ON else self.num_classes, \
@@ -133,7 +133,7 @@ class JsonDataset(object):
             'Crowd filter threshold must be 0 if ground-truth annotations ' \
             'are not included.'
         image_ids = self.COCO.getImgIds()
-        print("Image ids: ",image_ids)
+        print('ids ',image_ids)
         image_ids.sort()
         if cfg.DEBUG:
             roidb = copy.deepcopy(self.COCO.loadImgs(image_ids))[:100]

@@ -41,30 +41,37 @@ def combined_roidb_for_training(dataset_names, proposal_files):
     which involves caching certain types of metadata for each roidb entry.
     """
     def get_roidb(dataset_name, proposal_file):
-        ds = JsonDataset(dataset_name)
         # ds = LArCVDataset(dataset_name)
+        ds = JsonDataset(dataset_name)
         roidb = ds.get_roidb(
             gt=True,
             proposal_file=proposal_file,
             crowd_filter_thresh=cfg.TRAIN.CROWD_FILTER_THRESH
         )
-        x =1
+        x =0
         do=0
-        # print("Roidb type, and len: ",type(roidb),len(roidb))
-        # # print("Roidb attributes: ", dir(roidb))
-        # for entry in roidb:
-        #     # print("Roidb Entry attributes: ", dir(entry))
-        #     if x==1:
-        #         for el in entry['is_crowd']:
-        #             if el:
-        #                 do=1
-        #                 print('true iscrowd! RLE encryption!')
-        #         if do==1 and x==1:
-        #             for k,v in entry.items():
-        #                 print("Key: ", k)
-        #                 print(type(v))
-        #                 print(v)
-        #             x=0
+        print("Roidb type, and len: ",type(roidb),len(roidb))
+        # print("Roidb attributes: ", dir(roidb))
+        for entry in roidb:
+            if x==1:
+                break
+            print("Roidb Entry type, and len ", type(entry), len(entry))
+            print('')
+            x=x+1
+            for k,v in entry.items():
+                print('Key: ',k, '      Value:  ', v)
+                print('')
+            # if x==1:
+            #     for el in entry['is_crowd']:
+            #         if el:
+            #             do=1
+            #             print('true iscrowd! RLE encryption!')
+            #     if do==1 and x==1:
+            #         for k,v in entry.items():
+            #             print("Key: ", k)
+            #             print(type(v))
+            #             print(v)
+            #         x=0
 
         if cfg.TRAIN.USE_FLIPPED:
             logger.info('Appending horizontally-flipped training examples...')
