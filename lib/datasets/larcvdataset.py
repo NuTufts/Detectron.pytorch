@@ -37,6 +37,8 @@ import ROOT
 from larcv import larcv
 import numpy as np
 from torch.utils.data import Dataset
+#new imports:
+import cv2
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +46,8 @@ class LArCVDataset(object):
     """ LArCV2 data set interface for PyTorch"""
 
     def __init__(self, name):
+
+        from larcv.dataloader2 import larcv_threadio
         assert name in DATASETS.keys(), \
             'Unknown dataset name: {}'.format(name)
         assert os.path.exists(DATASETS[name][IM_DIR]), \
@@ -72,7 +76,6 @@ class LArCVDataset(object):
         # print('')
         # print('')
 
-    
 
 
         logger.debug('Creating: {}'.format(name))
@@ -91,6 +94,7 @@ class LArCVDataset(object):
         self.category_to_id_map = dict(zip(categories, category_ids))
         self.classes = ['__background__'] + categories
         self.num_classes = len(self.classes)
+        self.keypoints = None
         # print(category_ids)
         # print(categories)
         # print(self.classes)
@@ -115,6 +119,22 @@ class LArCVDataset(object):
         #         "number of classes should equal when using multiple datasets"
         # else:
         #     cfg.MODEL.NUM_CLASSES = 2 if cfg.MODEL.KEYPOINTS_ON else self.num_classes
+
+        #try making an io
+        # self.cfg="io_config.cfg"
+        # self.filler_cfg = {}
+        # self.filler_cfg["filler_name"] = 'TemporaryName'
+        # self.filler_cfg["verbosity"]   = 2
+        # self.filler_cfg["filler_cfg"]  = self.cfg
+        # self.io = larcv_threadio()
+        # self.io.configure(self.filler_cfg)
+        # print('GOT THIS FAR!')
+        # print('')
+        # self.batchsize=1
+        # if self.batchsize is not None:
+        #     self.start(self.batchsize)
+        # print('GOT THIS FAR!')
+        # print('')
 
     @property
     def cache_path(self):
@@ -153,50 +173,190 @@ class LArCVDataset(object):
         assert gt is True or crowd_filter_thresh == 0, \
             'Crowd filter threshold must be 0 if ground-truth annotations ' \
             'are not included.'
-        image_ids = self.COCO.getImgIds()
-        image_ids.sort()
-        if cfg.DEBUG:
-            roidb = copy.deepcopy(self.COCO.loadImgs(image_ids))[:100]
-        else:
-            roidb = copy.deepcopy(self.COCO.loadImgs(image_ids))
+        ###
+        ###Try makinng my own Roidb using root file
+        ###
+        roidb = []
+        plane = 2
+        _files = ['/home/jmills/workdir/mask-rcnn.pytorch/data/particle_physics_train/root_files/croppedmask_lf_001.root']
+        # _f = ROOT.TFile(_files[0])
+        image2d_adc_crop_chain = ROOT.TChain("image2d_adc_tree")
+        clustermask_cluster_crop_chain = ROOT.TChain("clustermask_masks_tree")
+        print()
+        for _file in _files: image2d_adc_crop_chain.AddFile(_file)
+        print ('Found', image2d_adc_crop_chain.GetEntries(), 'entries in image2d adc values')
+        for _file in _files: clustermask_cluster_crop_chain.AddFile(_file)
+        print ('Found', clustermask_cluster_crop_chain.GetEntries(), 'entries in clustermask clusters cropped ')
+        print()
+        #should go to clustermask_clsuter_crop_chain.GetEntries() in loop not 1
+        for entry in range(0,100):
+            # image2d_adc_crop_chain.GetEntry(entry)
+            # entry_image2dadc_crop_data = image2d_adc_crop_chain.image2d_adc_branch
+            # image2dadc_crop_array = entry_image2dadc_crop_data.as_vector()
 
-        for entry in roidb:
-            self._prep_roidb_entry(entry)
+            clustermask_cluster_crop_chain.GetEntry(entry)
+            entry_clustermaskcluster_crop_data = clustermask_cluster_crop_chain.clustermask_masks_branch
+            clustermaskcluster_crop_array = entry_clustermaskcluster_crop_data.as_vector()
 
-        if gt:
-            # Include ground-truth object annotations
-            cache_filepath = os.path.join(self.cache_path, self.name+'_gt_roidb.pkl')
-            if os.path.exists(cache_filepath) and not cfg.DEBUG:
-                self.debug_timer.tic()
-                self._add_gt_from_cache(roidb, cache_filepath)
-                logger.debug(
-                    '_add_gt_from_cache took {:.3f}s'.
-                    format(self.debug_timer.toc(average=False))
-                )
-            else:
-                self.debug_timer.tic()
-                for entry in roidb:
-                    self._add_gt_annotations(entry)
-                logger.debug(
-                    '_add_gt_annotations took {:.3f}s'.
-                    format(self.debug_timer.toc(average=False))
-                )
-                if not cfg.DEBUG:
-                    with open(cache_filepath, 'wb') as fp:
-                        pickle.dump(roidb, fp, pickle.HIGHEST_PROTOCOL)
-                    logger.info('Cache ground truth roidb to %s', cache_filepath)
-        if proposal_file is not None:
-            # Include proposals from a file
-            self.debug_timer.tic()
-            self._add_proposals_from_file(
-                roidb, proposal_file, min_proposal_size, proposal_limit,
-                crowd_filter_thresh
-            )
-            logger.debug(
-                '_add_proposals_from_file took {:.3f}s'.
-                format(self.debug_timer.toc(average=False))
-            )
-        _add_class_assignments(roidb)
+            ###These are things to be filled for each mask in the image
+            box_arr =               np.empty((0, 4), dtype=np.float32)
+            gt_class_arr =          np.empty((0), dtype=np.int32)
+            segms_list =            []
+            seg_areas_arr =         np.empty((0), dtype=np.float32)
+
+            #These ones I don't really know yet:
+            # max_overlap_list =          []
+            gt_overlaps_arr_sparse =    scipy.sparse.csr_matrix(np.empty((0, self.num_classes), dtype=np.float32))
+            gt_overlaps =               np.zeros((len(clustermaskcluster_crop_array[plane]), self.num_classes),dtype=gt_overlaps_arr_sparse.dtype)
+            is_crowd_arr =              np.empty((0), dtype=np.bool)
+            # max_classes_list =          []
+            box_to_gt_ind_map_arr =     np.empty((0), dtype=np.int32)
+
+
+
+
+
+            for idx, mask in enumerate(clustermaskcluster_crop_array[plane]):
+
+                #lets do the segm in polygon format using cv2
+                #https://github.com/facebookresearch/Detectron/issues/100#issuecomment-362882830
+
+                mask_bin_arr = larcv.as_ndarray_mask(mask)
+                new_mask = mask_bin_arr.astype(np.uint8).copy()
+                # opencv 3.2
+                mask_new, contours, hierarchy = cv2.findContours((new_mask).astype(np.uint8), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+                # n=0
+                polygon_list = []
+                for contour in contours:
+                    # n=n+1
+                    # print('Contour # ', n)
+                    contour = contour.flatten().tolist()
+                    if len(contour) > 4:
+                        polygon_list.append([float(i) for i in contour])
+
+                    # Not sure what this was meant for -j would double contours > 4
+                    # if len(contour) > 4:
+                    #     segms_list.append(contour)
+
+                if len(polygon_list) == 0:
+                    #Nothing in this segment don't include
+                    continue
+                segms_list.append(polygon_list)
+                is_crowd_arr = np.append(is_crowd_arr,False)
+                box_to_gt_ind_map_arr = np.append(box_to_gt_ind_map_arr, idx)
+
+
+
+                mask_box_arr = larcv.as_ndarray_bbox(mask)
+                ##If your array is x1,y1,x2,y2
+                # box_arr = np.append(box_arr, [[mask_box_arr[0], mask_box_arr[1], mask_box_arr[2], mask_box_arr[3]]])
+                ##if your array is x1,y1,w,h
+                box_arr = np.append(box_arr, [[mask_box_arr[0], mask_box_arr[1], mask_box_arr[0]+mask_box_arr[2], mask_box_arr[1]+mask_box_arr[3]]], 0)
+                area = np.sum(mask_bin_arr)
+
+                seg_areas_arr = np.append(seg_areas_arr, area)
+                gt_class_arr = np.append(gt_class_arr, int(mask_box_arr[4]))
+
+                if is_crowd_arr[-1]:
+                    gt_overlaps[idx, :] = -1.0
+                else:
+                    gt_overlaps[idx, int(mask_box_arr[4])] = 1.0
+                # max_classes_list.append(mask_box_arr[4])
+
+
+
+
+
+
+
+            #handle gt_overlaps
+            gt_overlaps_arr_sparse = np.append(gt_overlaps_arr_sparse.toarray(), gt_overlaps, axis=0)
+            gt_overlaps_arr_sparse = scipy.sparse.csr_matrix(gt_overlaps_arr_sparse)
+
+            #handle max_overlaps and max_classes
+            gt_overlaps = gt_overlaps_arr_sparse.toarray()
+            # max overlap with gt over classes (columns)
+            max_overlaps_arr = gt_overlaps.max(axis=1)
+            # gt class that had the max overlap
+            max_classes_arr = gt_overlaps.argmax(axis=1)
+            # sanity checks
+            # if max overlap is 0, the class must be background (class 0)
+            zero_inds = np.where(max_overlaps_arr == 0)[0]
+            assert all(max_classes_arr[zero_inds] == 0)
+            # if max overlap > 0, the class must be a fg class (not class 0)
+            nonzero_inds = np.where(max_overlaps_arr > 0)[0]
+            assert all(max_classes_arr[nonzero_inds] != 0)
+
+            dict = {
+                "height":                   512,
+                "width":                    832,
+                "flipped":                  False,
+                "has_visible_keypoints":    False,
+                "coco_url":                 'https://bellenot.web.cern.ch/bellenot/images/logo_full-plus-text-hor2.png',
+                "flickr_url":               'https://bellenot.web.cern.ch/bellenot/images/logo_full-plus-text-hor2.png',
+                "id":                       entry,
+                "dataset":                  self,
+                "image":                    '/home/jmills/workdir/mask-rcnn.pytorch/data/particle_physics_train/root_files/croppedmask_lf_001.root',
+                "boxes":                    box_arr,
+                "max_overlaps":             max_overlaps_arr,
+                "seg_areas":                seg_areas_arr,
+                "gt_overlaps":              gt_overlaps_arr_sparse,
+                "is_crowd":                 is_crowd_arr,
+                "max_classes":              max_classes_arr,
+                "box_to_gt_ind_map":        box_to_gt_ind_map_arr,
+                "gt_classes":               gt_class_arr,
+                "segms":                    segms_list,
+                "plane":                    2,
+            }
+            roidb.append(dict)
+        ###
+
+
+
+        # image_ids = self.COCO.getImgIds()
+        # image_ids.sort()
+        # if cfg.DEBUG:
+        #     roidb = copy.deepcopy(self.COCO.loadImgs(image_ids))[:100]
+        # else:
+        #     roidb = copy.deepcopy(self.COCO.loadImgs(image_ids))
+        #
+        # for entry in roidb:
+        #     self._prep_roidb_entry(entry)
+        #
+        # if gt:
+        #     # Include ground-truth object annotations
+        #     cache_filepath = os.path.join(self.cache_path, self.name+'_gt_roidb.pkl')
+        #     if os.path.exists(cache_filepath) and not cfg.DEBUG:
+        #         self.debug_timer.tic()
+        #         self._add_gt_from_cache(roidb, cache_filepath)
+        #         logger.debug(
+        #             '_add_gt_from_cache took {:.3f}s'.
+        #             format(self.debug_timer.toc(average=False))
+        #         )
+        #     else:
+        #         self.debug_timer.tic()
+        #         for entry in roidb:
+        #             self._add_gt_annotations(entry)
+        #         logger.debug(
+        #             '_add_gt_annotations took {:.3f}s'.
+        #             format(self.debug_timer.toc(average=False))
+        #         )
+        #         if not cfg.DEBUG:
+        #             with open(cache_filepath, 'wb') as fp:
+        #                 pickle.dump(roidb, fp, pickle.HIGHEST_PROTOCOL)
+        #             logger.info('Cache ground truth roidb to %s', cache_filepath)
+        # if proposal_file is not None:
+        #     # Include proposals from a file
+        #     self.debug_timer.tic()
+        #     self._add_proposals_from_file(
+        #         roidb, proposal_file, min_proposal_size, proposal_limit,
+        #         crowd_filter_thresh
+        #     )
+        #     logger.debug(
+        #         '_add_proposals_from_file took {:.3f}s'.
+        #         format(self.debug_timer.toc(average=False))
+        #     )
+        # _add_class_assignments(roidb)
         return roidb
 
     def _prep_roidb_entry(self, entry):
@@ -435,7 +595,91 @@ class LArCVDataset(object):
             gt_kps[1, i] = y[i]
             gt_kps[2, i] = v[i]
         return gt_kps
+    ############################################################################################################
+    ############################################################################################################
+    #From this point on we're josh's additions purely to bridge the gap
+    ############################################################################################################
+    ############################################################################################################
+    # def __len__(self):
+    #     if not self.loadallinmem:
+    #         return int(self.io.fetch_n_entries())
+    #     else:
+    #         return int(self.alldata[self.datalist[0]].shape[0])
+    #
+    # def __getitem__(self, idx):
+    #     if not self.loadallinmem:
+    #         #self.io.next(store_event_ids=self.store_eventids)
+    #         self.io.next()
+    #         out = {}
+    #         for dtype,name in zip(self.dtypelist,self.datalist):
+    #             out[name] = self.io.fetch_data(name).data()
+    #
+    #         if self.store_eventids:
+    #             out["event_ids"] = self.io.fetch_event_ids()
+    #     else:
+    #         indices = np.random.randint(len(self),size=self.batchsize)
+    #         out = {}
+    #         for name in self.datalist:
+    #             out[name] = np.zeros( (self.batchsize,self.alldata[name].shape[1]), self.alldata[name].dtype )
+    #             for n,idx in enumerate(indices):
+    #                 out[name][n,:] = self.alldata[name][idx,:]
+    #     return out
+    #
+    # def _loadinmem(self):
+    #     """load data into memory"""
+    #     nevents = int(self.io.fetch_n_entries())
+    #     if self.max_inmem_events>0 and nevents>self.max_inmem_events:
+    #         nevents = self.max_inmem_events
+    #
+    #     print("Attempting to load all ",nevents," into memory. good luck")
+    #     start = time.time()
+    #
+    #     # start threadio
+    #     self.start(1)
+    #
+    #     # get one data element to get shape
+    #     self.io.next(store_event_ids=self.store_eventids)
+    #     firstout = {}
+    #     for name in self.datalist:
+    #         firstout[name] = self.io.fetch_data(name).data()
+    #         self.alldata = {}
+    #     for name in self.datalist:
+    #         self.alldata[name] = np.zeros( (nevents,firstout[name].shape[1]), firstout[name].dtype )
+    #         self.alldata[name][0] = firstout[name][0,:]
+    #     for i in range(1,nevents):
+    #         self.io.next(store_event_ids=self.store_eventids)
+    #         if i%100==0:
+    #             print("loading event %d of %d"%(i,nevents))
+    #         for name in self.datalist:
+    #             out = self.io.fetch_data(name).data()
+    #             self.alldata[name][i,:] = out[0,:]
+    #
+    #     print("elapsed time to bring data into memory: ",time.time()-start,"sec")
+    #
+    #     # stop threads. don't need them anymore
+    #     self.stop()
 
+    # def __str__(self):
+    #     return dumpcfg()
+
+    # def start(self,batchsize):
+    #     """exposes larcv_threadio::start which is used to start the thread managers"""
+    #     self.batchsize = batchsize
+    #     self.io.start_manager(self.batchsize)
+    #
+    # def stop(self):
+    #     """ stops the thread managers"""
+    #     self.io.stop_manager()
+
+    # def dumpcfg(self):
+    #     """dump the configuration file to a string"""
+    #     print(open(self.cfg).read())
+
+    ############################################################################################################
+    ############################################################################################################
+    #End Josh additions back to maskrcnn
+    ############################################################################################################
+    ############################################################################################################
 
 def add_proposals(roidb, rois, scales, crowd_thresh):
     """Add proposal boxes (rois) to an roidb that has ground-truth annotations
@@ -486,6 +730,22 @@ def _merge_proposal_boxes_into_roidb(roidb, box_list):
             # Those boxes with non-zero overlap with gt boxes
             I = np.where(maxes > 0)[0]
             # Record max overlaps with the class of the appropriate gt box
+            # print()
+            # print()
+            # print()
+            # print()
+            #
+            # print('I',type(I))
+            # print('I[0]',type(I[0]))
+            # print('gt_classes[argmaxes[I]]',type(gt_classes[argmaxes[I]]))
+            # print('gt_classes[argmaxes[I]][0]',type(gt_classes[argmaxes[I]][0]))
+            #
+            # print()
+            # print()
+            # print()
+            # print()
+
+
             gt_overlaps[I, gt_classes[argmaxes[I]]] = maxes[I]
             box_to_gt_ind_map[I] = gt_inds[argmaxes[I]]
         entry['boxes'] = np.append(

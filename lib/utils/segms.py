@@ -53,6 +53,9 @@ def flip_segms(segms, height, width):
   for segm in segms:
     if type(segm) == list:
       # Polygon format
+      # print(type(segm))
+      # print(type(segm[0]))
+      # print(type(segm[0][0]))
       flipped_segms.append([_flip_poly(poly, width) for poly in segm])
     else:
       # RLE format
@@ -108,7 +111,7 @@ def polys_to_mask_wrt_box(polygons, box, M):
     p[0::2] = (p[0::2] - box[0]) * M / w
     p[1::2] = (p[1::2] - box[1]) * M / h
     polygons_norm.append(p)
-
+  # print(type(polygons_norm))
   rle = mask_util.frPyObjects(polygons_norm, M, M)
   mask = np.array(mask_util.decode(rle), dtype=np.float32)
   # Flatten in case polygons was a list

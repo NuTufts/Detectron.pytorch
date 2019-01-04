@@ -41,8 +41,8 @@ def combined_roidb_for_training(dataset_names, proposal_files):
     which involves caching certain types of metadata for each roidb entry.
     """
     def get_roidb(dataset_name, proposal_file):
-        # ds = LArCVDataset(dataset_name)
-        ds = JsonDataset(dataset_name)
+        # ds = JsonDataset(dataset_name)
+        ds = LArCVDataset(dataset_name)
         roidb = ds.get_roidb(
             gt=True,
             proposal_file=proposal_file,
@@ -53,25 +53,32 @@ def combined_roidb_for_training(dataset_names, proposal_files):
         print("Roidb type, and len: ",type(roidb),len(roidb))
         # print("Roidb attributes: ", dir(roidb))
         for entry in roidb:
-            if x==1:
+            if x>1:
                 break
             print("Roidb Entry type, and len ", type(entry), len(entry))
+            # for ind in range(0, len(entry['segms'])):
+            #     print('Segment: ', ind)
+            #     for ind2 in range(0,(int(len(entry['segms'][ind])/2))):
+            #         print(entry['segms'][ind][ind2*2], ',',entry['segms'][ind][ind2*2+1])
+
             print('')
             x=x+1
             for k,v in entry.items():
-                print('Key: ',k, '      Value:  ', v)
+                if k != "segms":
+                    print('Key: ',k, '      Value:  ', v)
+                # else:
+                    # print(type(v))
+                    # print(type(v[0]))
+                    # print(type(v[0][0]))
+                    # print(type(v[0][0][0]))
+                    # for ind in range(0, len(v)):
+                    #     print()
+                    #     print('Segment: ', ind)
+                    #     print()
+                    #     print(v[ind])
+
                 print('')
-            # if x==1:
-            #     for el in entry['is_crowd']:
-            #         if el:
-            #             do=1
-            #             print('true iscrowd! RLE encryption!')
-            #     if do==1 and x==1:
-            #         for k,v in entry.items():
-            #             print("Key: ", k)
-            #             print(type(v))
-            #             print(v)
-            #         x=0
+
 
         if cfg.TRAIN.USE_FLIPPED:
             logger.info('Appending horizontally-flipped training examples...')
@@ -139,6 +146,8 @@ def extend_with_flipped_entries(roidb, dataset):
             if k not in dont_copy:
                 flipped_entry[k] = v
         flipped_entry['boxes'] = boxes
+
+
         flipped_entry['segms'] = segm_utils.flip_segms(
             entry['segms'], entry['height'], entry['width']
         )
@@ -161,6 +170,8 @@ def filter_for_training(roidb):
         #   (2) At least one background RoI
         overlaps = entry['max_overlaps']
         # find boxes with sufficient overlap
+        # print(type(overlaps))
+        # print(type(cfg.TRAIN_FG_THRESH))
         fg_inds = np.where(overlaps >= cfg.TRAIN.FG_THRESH)[0]
         # Select background RoIs as those within [BG_THRESH_LO, BG_THRESH_HI)
         bg_inds = np.where((overlaps < cfg.TRAIN.BG_THRESH_HI) &

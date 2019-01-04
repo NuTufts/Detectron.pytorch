@@ -1,6 +1,7 @@
 MODEL:
   TYPE: generalized_rcnn
   CONV_BODY: ResNet.ResNet50_conv4_body
+  NUM_CLASSES: 7
   FASTER_RCNN: True
   MASK_ON: True
 RESNETS:
@@ -12,8 +13,8 @@ SOLVER:
   BASE_LR: 0.01
   GAMMA: 0.1
   # 1x schedule (note TRAIN.IMS_PER_BATCH: 1)
-  MAX_ITER: 18000
-  STEPS: [0, 6000, 12000]
+  MAX_ITER: 100
+  STEPS: [25, 50, 75]
 RPN:
   SIZES: (32, 64, 128, 256, 512)
 FAST_RCNN:

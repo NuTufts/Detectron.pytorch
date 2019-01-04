@@ -5,6 +5,13 @@ from core.config import cfg
 import utils.blob as blob_utils
 import roi_data.rpn
 
+#larcvdataset imports:
+import os,time
+import ROOT
+from larcv import larcv
+import numpy as np
+from torch.utils.data import Dataset
+
 
 def get_minibatch_blob_names(is_training=True):
     """Return blob names in the order in which they are read by the data loader.
@@ -55,7 +62,26 @@ def _get_image_blob(roidb):
     processed_ims = []
     im_scales = []
     for i in range(num_images):
-        im = cv2.imread(roidb[i]['image'])
+        #for root files:
+        image2d_adc_crop_chain = ROOT.TChain("image2d_adc_tree")
+        image2d_adc_crop_chain.AddFile(roidb[i]['image'])
+
+        image2d_adc_crop_chain.GetEntry(roidb[i]['id'])
+        entry_image2dadc_crop_data = image2d_adc_crop_chain.image2d_adc_branch
+        image2dadc_crop_array = entry_image2dadc_crop_data.as_vector()
+        im_2d = larcv.as_ndarray(image2dadc_crop_array[roidb[i]['plane']])
+        im = np.zeros ((roidb[i]['height'],roidb[i]['width'],3))
+        # print('height: ',roidb[i]['height'] , "     dim1: ",len(im_2d))
+        # print('width: ',roidb[i]['width'] , "     dim2: ",len(im_2d[0]))
+
+        for dim1 in range(len(im_2d)):
+            for dim2 in range(len(im_2d[0])):
+                im[dim1][dim2][0] = im_2d[dim1][dim2]
+                im[dim1][dim2][1] = im_2d[dim1][dim2]
+                im[dim1][dim2][2] = im_2d[dim1][dim2]
+
+        # #for jpgs:
+        # im = cv2.imread(roidb[i]['image'])
         assert im is not None, \
             'Failed to read image \'{}\''.format(roidb[i]['image'])
         # If NOT using opencv to read in images, uncomment following lines
