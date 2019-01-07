@@ -166,6 +166,14 @@ def _sample_rois(roidb, im_scale, batch_idx):
     if 'bbox_targets' not in roidb:
         gt_inds = np.where(roidb['gt_classes'] > 0)[0]
         gt_boxes = roidb['boxes'][gt_inds, :]
+        for k,v in roidb.items():
+            print("Key:", k)
+        print()
+        print('box to gt ind_map', roidb['box_to_gt_ind_map'])
+        print('keep_inds', keep_inds)
+
+        print()
+
         gt_assignments = gt_inds[roidb['box_to_gt_ind_map'][keep_inds]]
         bbox_targets = _compute_targets(
             sampled_boxes, gt_boxes[gt_assignments, :], sampled_labels)

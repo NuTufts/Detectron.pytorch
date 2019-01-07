@@ -48,36 +48,37 @@ def combined_roidb_for_training(dataset_names, proposal_files):
             proposal_file=proposal_file,
             crowd_filter_thresh=cfg.TRAIN.CROWD_FILTER_THRESH
         )
-        x =0
-        do=0
-        print("Roidb type, and len: ",type(roidb),len(roidb))
-        # print("Roidb attributes: ", dir(roidb))
-        for entry in roidb:
-            if x>1:
-                break
-            print("Roidb Entry type, and len ", type(entry), len(entry))
-            # for ind in range(0, len(entry['segms'])):
-            #     print('Segment: ', ind)
-            #     for ind2 in range(0,(int(len(entry['segms'][ind])/2))):
-            #         print(entry['segms'][ind][ind2*2], ',',entry['segms'][ind][ind2*2+1])
-
-            print('')
-            x=x+1
-            for k,v in entry.items():
-                if k != "segms":
-                    print('Key: ',k, '      Value:  ', v)
-                # else:
-                    # print(type(v))
-                    # print(type(v[0]))
-                    # print(type(v[0][0]))
-                    # print(type(v[0][0][0]))
-                    # for ind in range(0, len(v)):
-                    #     print()
-                    #     print('Segment: ', ind)
-                    #     print()
-                    #     print(v[ind])
-
-                print('')
+        ###Print Statements to understand ROIDB structure
+        # x =0
+        # do=0
+        # print("Roidb type, and len: ",type(roidb),len(roidb))
+        # # print("Roidb attributes: ", dir(roidb))
+        # for entry in roidb:
+        #     if x>1:
+        #         break
+        #     print("Roidb Entry type, and len ", type(entry), len(entry))
+        #     # for ind in range(0, len(entry['segms'])):
+        #     #     print('Segment: ', ind)
+        #     #     for ind2 in range(0,(int(len(entry['segms'][ind])/2))):
+        #     #         print(entry['segms'][ind][ind2*2], ',',entry['segms'][ind][ind2*2+1])
+        #
+        #     print('')
+        #     x=x+1
+        #     for k,v in entry.items():
+        #         if k != "segms":
+        #             print('Key: ',k, '      Value:  ', v)
+        #         # else:
+        #             # print(type(v))
+        #             # print(type(v[0]))
+        #             # print(type(v[0][0]))
+        #             # print(type(v[0][0][0]))
+        #             # for ind in range(0, len(v)):
+        #             #     print()
+        #             #     print('Segment: ', ind)
+        #             #     print()
+        #             #     print(v[ind])
+        #
+        #         print('')
 
 
         if cfg.TRAIN.USE_FLIPPED:
@@ -106,6 +107,7 @@ def combined_roidb_for_training(dataset_names, proposal_files):
     #             print("Key: ", k)
     #             print(type(v), " with value: ", v)
     #         x=0
+
     roidb = filter_for_training(roidb)
 
     if cfg.TRAIN.ASPECT_GROUPING or cfg.TRAIN.ASPECT_CROPPING:
@@ -242,6 +244,7 @@ def add_bbox_regression_targets(roidb):
 def _compute_targets(entry):
     """Compute bounding-box regression targets for an image."""
     # Indices of ground-truth ROIs
+
     rois = entry['boxes']
     overlaps = entry['max_overlaps']
     labels = entry['max_classes']
@@ -251,9 +254,18 @@ def _compute_targets(entry):
     if len(gt_inds) == 0:
         # Bail if the image has no ground-truth ROIs
         return targets
-
+    if entry['id'] >18:
+        print('overlaps ', type(overlaps))
+        print(overlaps)
+        print('cfg.TRAIN.BBOX_THRESH ', type(cfg.TRAIN.BBOX_THRESH))
+        print(cfg.TRAIN.BBOX_THRESH)
     # Indices of examples for which we try to make predictions
     ex_inds = np.where(overlaps >= cfg.TRAIN.BBOX_THRESH)[0]
+    if entry['id'] >18:
+        print(type(ex_inds))
+        print(ex_inds)
+        print(type(gt_inds))
+        print(gt_inds)
 
     # Get IoU overlap between each ex ROI and gt ROI
     ex_gt_overlaps = box_utils.bbox_overlaps(

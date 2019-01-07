@@ -139,18 +139,31 @@ class JsonDataset(object):
             roidb = copy.deepcopy(self.COCO.loadImgs(image_ids))[:100]
         else:
             roidb = copy.deepcopy(self.COCO.loadImgs(image_ids))
-        # print("Roidb type, and len: ",type(roidb),len(roidb))
+        print()
+        print()
+        print()
+        print()
+        print()
+        print()
+        print("Roidb type, and len: ",type(roidb),len(roidb))
         # print("Roidb attributes: ", dir(roidb))
-        # x =1
+        x =1
         for entry in roidb:
             self._prep_roidb_entry(entry)
-            # if x==1:
-            #     print("Entry type, and len: ",type(entry),len(entry))
-            #     # print("Roidb Entry attributes: ", dir(entry))
-            #     for k,v in entry.items():
-            #         print("Key: ", k)
-            #         print(type(v), " with value: ", v)
-            #     x=0
+
+            if x==1:
+                print("Entry type, and len: ",type(entry),len(entry))
+                # print("Roidb Entry attributes: ", dir(entry))
+                for k,v in entry.items():
+                    print("Key: ", k)
+                    print(type(v), " with value: ", v)
+                x=0
+        print()
+        print()
+        print()
+        print()
+        print()
+        print()
         if gt:
             # Include ground-truth object annotations
             cache_filepath = os.path.join(self.cache_path, self.name+'_gt_roidb.pkl')
