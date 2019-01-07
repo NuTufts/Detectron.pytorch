@@ -146,8 +146,19 @@ class JsonDataset(object):
         print()
         print()
         print("Roidb type, and len: ",type(roidb),len(roidb))
-        # print("Roidb attributes: ", dir(roidb))
+        for k,v  in roidb[0].items():
+            print('Key: ', k)
+            print('Type V: ', type(v))
+            print('Value: ', v)
+            print()
+
         x =1
+        print()
+        print()
+        print()
+        print()
+        print()
+
         for entry in roidb:
             self._prep_roidb_entry(entry)
 
@@ -157,6 +168,7 @@ class JsonDataset(object):
                 for k,v in entry.items():
                     print("Key: ", k)
                     print(type(v), " with value: ", v)
+                    print()
                 x=0
         print()
         print()

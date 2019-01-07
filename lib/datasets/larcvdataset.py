@@ -94,6 +94,7 @@ class LArCVDataset(object):
         self.category_to_id_map = dict(zip(categories, category_ids))
         self.classes = ['__background__'] + categories
         self.num_classes = len(self.classes)
+        self.plane =2
         self.keypoints = None
         # print(category_ids)
         # print(categories)
@@ -151,9 +152,7 @@ class LArCVDataset(object):
         so we don't need to overwrite it again.
         """
         keys = ['boxes', 'segms', 'gt_classes', 'seg_areas', 'gt_overlaps',
-                'is_crowd', 'box_to_gt_ind_map', 'width', 'height', 'flipped',
-                'has_visible_keypoints', 'coco_url', 'flickr_url', 'id', 'image',
-                'max_overlaps', 'max_classes', 'plane']
+                'is_crowd', 'box_to_gt_ind_map', 'width', 'height', 'image', 'id', 'plane' , 'flipped']
         if self.keypoints is not None:
             keys += ['gt_keypoints', 'has_visible_keypoints']
         return keys
@@ -182,16 +181,35 @@ class LArCVDataset(object):
         # _f = ROOT.TFile(_files[0])
         image2d_adc_crop_chain = ROOT.TChain("image2d_adc_tree")
         clustermask_cluster_crop_chain = ROOT.TChain("clustermask_masks_tree")
-        print()
+        # print()
         for _file in _files: image2d_adc_crop_chain.AddFile(_file)
-        print ('Found', image2d_adc_crop_chain.GetEntries(), 'entries in image2d adc values')
+        # print ('Found', image2d_adc_crop_chain.GetEntries(), 'entries in image2d adc values')
         for _file in _files: clustermask_cluster_crop_chain.AddFile(_file)
-        print ('Found', clustermask_cluster_crop_chain.GetEntries(), 'entries in clustermask clusters cropped ')
-        print()
+        # print ('Found', clustermask_cluster_crop_chain.GetEntries(), 'entries in clustermask clusters cropped ')
+        # print()
         assert image2d_adc_crop_chain.GetEntries() == clustermask_cluster_crop_chain.GetEntries()
 
         self.NUM_IMAGES=clustermask_cluster_crop_chain.GetEntries()
-        self.NUM_IMAGES=50
+
+        for entry in range(self.NUM_IMAGES):
+            dict = {
+                "height":                   512,
+                "width":                    832,
+                "coco_url":                 'https://bellenot.web.cern.ch/bellenot/images/logo_full-plus-text-hor2.png',
+                "flickr_url":               'https://bellenot.web.cern.ch/bellenot/images/logo_full-plus-text-hor2.png',
+                "id":                       entry,
+                "image":                    _files[0],
+                "date_captured":             'Tomorrow',
+                "license":                  3,
+                "plane":                    2,
+                }
+            roidb.append(dict)
+        #end of COCO's copy.deepcopy(self.COCO.loadImgs(image_ids)) command equivalent
+        for entry in roidb:
+            self._prep_roidb_entry(entry)
+        print("YOU GOT HERE JOSH!")
+
+
         # Include ground-truth object annotations
         cache_filepath = os.path.join(self.cache_path, self.name+'_gt_roidb.pkl')
         if os.path.exists(cache_filepath) and not cfg.DEBUG:
@@ -204,208 +222,230 @@ class LArCVDataset(object):
             )
         else:
             self.debug_timer.tic()
-            ###Here goes nothing!
-            plane = 2
+            print('No Cache Found, Preparing to load from ROOT Files.\n    GOOD LUCK!   \n')
+            print(len(roidb), ' Entries to Load in.')
+            update_every_percent = 10
+            print_cond = len(roidb)/update_every_percent
+            count =0
+            for entry in roidb:
+                if count%1000==0:
+                    print(count, " Complete took time: ", self.debug_timer.toc(average=False))
+                self._add_gt_annotations(entry, clustermask_cluster_crop_chain)
+                count = count+1
 
-            #should go to self.NUM_IMAGES in loop not 1
-
-            for entry in range(0,self.NUM_IMAGES):
-                # image2d_adc_crop_chain.GetEntry(entry)
-                # entry_image2dadc_crop_data = image2d_adc_crop_chain.image2d_adc_branch
-                # image2dadc_crop_array = entry_image2dadc_crop_data.as_vector()
-
-                clustermask_cluster_crop_chain.GetEntry(entry)
-                entry_clustermaskcluster_crop_data = clustermask_cluster_crop_chain.clustermask_masks_branch
-                clustermaskcluster_crop_array = entry_clustermaskcluster_crop_data.as_vector()
-
-                ###These are things to be filled for each mask in the image
-                box_arr =               np.empty((0, 4), dtype=np.float32)
-                gt_class_arr =          np.empty((0), dtype=np.int32)
-                segms_list =            []
-                seg_areas_arr =         np.empty((0), dtype=np.float32)
-
-                #These ones I don't really know yet:
-                # max_overlap_list =          []
-                gt_overlaps_arr_sparse =    scipy.sparse.csr_matrix(np.empty((0, self.num_classes), dtype=np.float32))
-                num_valid_masks=0
-                # for idx, mask in enumerate(clustermaskcluster_crop_array[plane]):
-                #
-                #
-                #     mask_bin_arr = larcv.as_ndarray_mask(mask)
-                #     area = np.sum(mask_bin_arr)
-                #     if area < cfg.TRAIN.GT_MIN_AREA:
-                #         continue
-                #
-                #     # Convert form (x1, y1, w, h) to (x1, y1, x2, y2)
-                #     mask_box_arr = larcv.as_ndarray_bbox(mask)
-                #
-                #     # Require non-zero seg area and more than 1x1 box size
-                #     if area > 0 and mask_box_arr[0]+mask_box_arr[2] > mask_box_arr[0] and mask_box_arr[1]+mask_box_arr[3] > mask_box_arr[1]:
-                #         num_valid_masks = num_valid_masks+1
-
-
-
-                gt_overlaps =               np.zeros((len(clustermaskcluster_crop_array[plane]), self.num_classes),dtype=gt_overlaps_arr_sparse.dtype)
-                if entry ==20:
-                    print('NumValidMasks: ',num_valid_masks)
-                    print('gt_overlaps: ',gt_overlaps)
-
-                is_crowd_arr =              np.empty((0), dtype=np.bool)
-                # max_classes_list =          []
-                box_to_gt_ind_map_arr =     np.empty((0), dtype=np.int32)
-
-
-
-
-                delete_rows=[]
-                print('LENGTH: ',len(clustermaskcluster_crop_array[plane]))
-                for idx, mask in enumerate(clustermaskcluster_crop_array[plane]):
-                    print('idx: ',idx)
-
-                    #lets do the segm in polygon format using cv2
-                    #https://github.com/facebookresearch/Detectron/issues/100#issuecomment-362882830
-
-                    mask_bin_arr = larcv.as_ndarray_mask(mask)
-                    new_mask = mask_bin_arr.astype(np.uint8).copy()
-                    # opencv 3.2
-                    mask_new, contours, hierarchy = cv2.findContours((new_mask).astype(np.uint8), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-                    # n=0
-                    polygon_list = []
-                    for contour in contours:
-                        # n=n+1
-                        # print('Contour # ', n)
-                        contour = contour.flatten().tolist()
-                        if len(contour) > 4:
-                            polygon_list.append([float(i) for i in contour])
-
-                        # Not sure what this was meant for -j would double contours > 4
-                        # if len(contour) > 4:
-                        #     segms_list.append(contour)
-
-                    if len(polygon_list) == 0:
-                        #Nothing in this segment don't include
-                        print('idx inside: ',idx)
-                        delete_rows.append(idx)
-                        print('idx inside: ',idx)
-                        continue
-
-                    segms_list.append(polygon_list)
-                    is_crowd_arr = np.append(is_crowd_arr,False)
-                    box_to_gt_ind_map_arr = np.append(box_to_gt_ind_map_arr, idx)
-
-
-
-                    mask_box_arr = larcv.as_ndarray_bbox(mask)
-                    ##If your array is x1,y1,x2,y2
-                    # box_arr = np.append(box_arr, [[mask_box_arr[0], mask_box_arr[1], mask_box_arr[2], mask_box_arr[3]]])
-                    ##if your array is x1,y1,w,h
-                    box_arr = np.append(box_arr, [[mask_box_arr[0], mask_box_arr[1], mask_box_arr[0]+mask_box_arr[2], mask_box_arr[1]+mask_box_arr[3]]], 0)
-                    area = np.sum(mask_bin_arr)
-
-                    seg_areas_arr = np.append(seg_areas_arr, area)
-                    gt_class_arr = np.append(gt_class_arr, int(mask_box_arr[4]))
-                    if entry==20:
-                        print(idx)
-                    if is_crowd_arr[-1]:
-                        gt_overlaps[idx, :] = -1.0
-                    else:
-                        gt_overlaps[idx, int(mask_box_arr[4])] = 1.0
-                    # max_classes_list.append(mask_box_arr[4])
-                    # if entry == 20:
-                    #     print('here we are!')
-                    #     print(type(gt_overlaps), gt_overlaps)
-
-
-
-
-                for row in delete_rows:
-                    gt_overlaps = np.delete(gt_overlaps, row, axis=0)
-
-
-                #handle gt_overlaps
-                gt_overlaps_arr_sparse = np.append(gt_overlaps_arr_sparse.toarray(), gt_overlaps, axis=0)
-                # if entry ==20:
-                #     print('gt_overlaps_arr_sparse ')
-                #     print(gt_overlaps_arr_sparse)
-                gt_overlaps_arr_sparse = scipy.sparse.csr_matrix(gt_overlaps_arr_sparse)
-
-                #handle max_overlaps and max_classes
-                gt_overlaps = gt_overlaps_arr_sparse.toarray()
-                # max overlap with gt over classes (columns)
-                max_overlaps_arr = gt_overlaps.max(axis=1)
-                # gt class that had the max overlap
-                max_classes_arr = gt_overlaps.argmax(axis=1)
-                # sanity checks
-                # if max overlap is 0, the class must be background (class 0)
-                zero_inds = np.where(max_overlaps_arr == 0)[0]
-                assert all(max_classes_arr[zero_inds] == 0)
-                # if max overlap > 0, the class must be a fg class (not class 0)
-                nonzero_inds = np.where(max_overlaps_arr > 0)[0]
-                assert all(max_classes_arr[nonzero_inds] != 0)
-
-                dict = {
-                    "height":                   512,
-                    "width":                    832,
-                    "flipped":                  False,
-                    "has_visible_keypoints":    False,
-                    "coco_url":                 'https://bellenot.web.cern.ch/bellenot/images/logo_full-plus-text-hor2.png',
-                    "flickr_url":               'https://bellenot.web.cern.ch/bellenot/images/logo_full-plus-text-hor2.png',
-                    "id":                       entry,
-                    "dataset":                  self,
-                    "image":                    '/media/disk1/jmills/crop_mask_train/crop_train1.root',
-                    # "image":                    '/home/jmills/workdir/mask-rcnn.pytorch/data/particle_physics_train/root_files/croppedmask_lf_001.root',
-                    "boxes":                    box_arr,
-                    "max_overlaps":             max_overlaps_arr,
-                    "seg_areas":                seg_areas_arr,
-                    "gt_overlaps":              gt_overlaps_arr_sparse,
-                    "is_crowd":                 is_crowd_arr,
-                    "max_classes":              max_classes_arr,
-                    "box_to_gt_ind_map":        box_to_gt_ind_map_arr,
-                    "gt_classes":               gt_class_arr,
-                    "segms":                    segms_list,
-                    "plane":                    2,
-                }
-                roidb.append(dict)
-            ###
             logger.debug(
-                '_add_gt_annotations took {:.3f}s'.
-                format(self.debug_timer.toc(average=False))
-            )
+            '_add_gt_annotations took {:.3f}s'.
+            format(self.debug_timer.toc(average=False))
+                )
+            print()
+            print('YOU GOT HERE NOW JOSH!!')
+            print()
             if not cfg.DEBUG:
-                with open(cache_filepath, 'wb') as fp:
-                    pickle.dump(roidb, fp, pickle.HIGHEST_PROTOCOL)
-                logger.info('Cache ground truth roidb to %s', cache_filepath)
-
-        for ind in range(50):
-            if (roidb[ind]['id']==20):
-                for k,v in roidb[ind].items():
-                        if k != "segms" or True:
-                            print('Key: ',k, '      Value:  ', v)
-                        # else:
-                            # print(type(v))
-                            # print(type(v[0]))
-                            # print(type(v[0][0]))
-                            # print(type(v[0][0][0]))
-                            # for ind in range(0, len(v)):
-                            #     print()
-                            #     print('Segment: ', ind)
-                            #     print()
-                            #     print(v[ind])
-
-                        print('')
-
+                    with open(cache_filepath, 'wb') as fp:
+                        pickle.dump(roidb, fp, pickle.HIGHEST_PROTOCOL)
+                    logger.info('Cache ground truth roidb to %s', cache_filepath)
+        _add_class_assignments(roidb)
         return roidb
+
+
+            # ###Here goes nothing!
+            # plane = 2
+            #
+            # #should go to self.NUM_IMAGES in loop not 1
+            #
+            # for entry in range(0,self.NUM_IMAGES):
+            #     # image2d_adc_crop_chain.GetEntry(entry)
+            #     # entry_image2dadc_crop_data = image2d_adc_crop_chain.image2d_adc_branch
+            #     # image2dadc_crop_array = entry_image2dadc_crop_data.as_vector()
+            #
+            #     clustermask_cluster_crop_chain.GetEntry(entry)
+            #     entry_clustermaskcluster_crop_data = clustermask_cluster_crop_chain.clustermask_masks_branch
+            #     clustermaskcluster_crop_array = entry_clustermaskcluster_crop_data.as_vector()
+            #
+            #     ###These are things to be filled for each mask in the image
+            #     box_arr =               np.empty((0, 4), dtype=np.float32)
+            #     gt_class_arr =          np.empty((0), dtype=np.int32)
+            #     segms_list =            []
+            #     seg_areas_arr =         np.empty((0), dtype=np.float32)
+            #
+            #     #These ones I don't really know yet:
+            #     # max_overlap_list =          []
+            #     gt_overlaps_arr_sparse =    scipy.sparse.csr_matrix(np.empty((0, self.num_classes), dtype=np.float32))
+            #     num_valid_masks=0
+            #     # for idx, mask in enumerate(clustermaskcluster_crop_array[plane]):
+            #     #
+            #     #
+            #     #     mask_bin_arr = larcv.as_ndarray_mask(mask)
+            #     #     area = np.sum(mask_bin_arr)
+            #     #     if area < cfg.TRAIN.GT_MIN_AREA:
+            #     #         continue
+            #     #
+            #     #     # Convert form (x1, y1, w, h) to (x1, y1, x2, y2)
+            #     #     mask_box_arr = larcv.as_ndarray_bbox(mask)
+            #     #
+            #     #     # Require non-zero seg area and more than 1x1 box size
+            #     #     if area > 0 and mask_box_arr[0]+mask_box_arr[2] > mask_box_arr[0] and mask_box_arr[1]+mask_box_arr[3] > mask_box_arr[1]:
+            #     #         num_valid_masks = num_valid_masks+1
+            #
+            #
+            #
+            #     gt_overlaps =               np.zeros((len(clustermaskcluster_crop_array[plane]), self.num_classes),dtype=gt_overlaps_arr_sparse.dtype)
+            #     if entry ==20:
+            #         print('NumValidMasks: ',num_valid_masks)
+            #         print('gt_overlaps: ',gt_overlaps)
+            #
+            #     is_crowd_arr =              np.empty((0), dtype=np.bool)
+            #     # max_classes_list =          []
+            #     box_to_gt_ind_map_arr =     np.empty((0), dtype=np.int32)
+            #
+            #
+            #
+            #
+            #     delete_rows=[]
+            #     print('LENGTH: ',len(clustermaskcluster_crop_array[plane]))
+            #     for idx, mask in enumerate(clustermaskcluster_crop_array[plane]):
+            #         print('idx: ',idx)
+            #
+            #         #lets do the segm in polygon format using cv2
+            #         #https://github.com/facebookresearch/Detectron/issues/100#issuecomment-362882830
+            #
+            #         mask_bin_arr = larcv.as_ndarray_mask(mask)
+            #         new_mask = mask_bin_arr.astype(np.uint8).copy()
+            #         # opencv 3.2
+            #         mask_new, contours, hierarchy = cv2.findContours((new_mask).astype(np.uint8), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+            #         # n=0
+            #         polygon_list = []
+            #         for contour in contours:
+            #             # n=n+1
+            #             # print('Contour # ', n)
+            #             contour = contour.flatten().tolist()
+            #             if len(contour) > 4:
+            #                 polygon_list.append([float(i) for i in contour])
+            #
+            #             # Not sure what this was meant for -j would double contours > 4
+            #             # if len(contour) > 4:
+            #             #     segms_list.append(contour)
+            #
+            #         if len(polygon_list) == 0:
+            #             #Nothing in this segment don't include
+            #             print('idx inside: ',idx)
+            #             delete_rows.append(idx)
+            #             print('idx inside: ',idx)
+            #             continue
+            #
+            #         segms_list.append(polygon_list)
+            #         is_crowd_arr = np.append(is_crowd_arr,False)
+            #         box_to_gt_ind_map_arr = np.append(box_to_gt_ind_map_arr, idx)
+            #
+            #
+            #
+            #         mask_box_arr = larcv.as_ndarray_bbox(mask)
+            #         ##If your array is x1,y1,x2,y2
+            #         # box_arr = np.append(box_arr, [[mask_box_arr[0], mask_box_arr[1], mask_box_arr[2], mask_box_arr[3]]])
+            #         ##if your array is x1,y1,w,h
+            #         box_arr = np.append(box_arr, [[mask_box_arr[0], mask_box_arr[1], mask_box_arr[0]+mask_box_arr[2], mask_box_arr[1]+mask_box_arr[3]]], 0)
+            #         area = np.sum(mask_bin_arr)
+            #
+            #         seg_areas_arr = np.append(seg_areas_arr, area)
+            #         gt_class_arr = np.append(gt_class_arr, int(mask_box_arr[4]))
+            #         if entry==20:
+            #             print(idx)
+            #         if is_crowd_arr[-1]:
+            #             gt_overlaps[idx, :] = -1.0
+            #         else:
+            #             gt_overlaps[idx, int(mask_box_arr[4])] = 1.0
+            #         # max_classes_list.append(mask_box_arr[4])
+            #         # if entry == 20:
+            #         #     print('here we are!')
+            #         #     print(type(gt_overlaps), gt_overlaps)
+            #
+            #
+            #
+            #
+            #     for row in delete_rows:
+            #         gt_overlaps = np.delete(gt_overlaps, row, axis=0)
+            #
+            #
+            #     #handle gt_overlaps
+            #     gt_overlaps_arr_sparse = np.append(gt_overlaps_arr_sparse.toarray(), gt_overlaps, axis=0)
+            #     # if entry ==20:
+            #     #     print('gt_overlaps_arr_sparse ')
+            #     #     print(gt_overlaps_arr_sparse)
+            #     gt_overlaps_arr_sparse = scipy.sparse.csr_matrix(gt_overlaps_arr_sparse)
+            #
+            #     #handle max_overlaps and max_classes
+            #     gt_overlaps = gt_overlaps_arr_sparse.toarray()
+            #     # max overlap with gt over classes (columns)
+            #     max_overlaps_arr = gt_overlaps.max(axis=1)
+            #     # gt class that had the max overlap
+            #     max_classes_arr = gt_overlaps.argmax(axis=1)
+            #     # sanity checks
+            #     # if max overlap is 0, the class must be background (class 0)
+            #     zero_inds = np.where(max_overlaps_arr == 0)[0]
+            #     assert all(max_classes_arr[zero_inds] == 0)
+            #     # if max overlap > 0, the class must be a fg class (not class 0)
+            #     nonzero_inds = np.where(max_overlaps_arr > 0)[0]
+            #     assert all(max_classes_arr[nonzero_inds] != 0)
+            #
+            #     dict = {
+            #         "height":                   512,
+            #         "width":                    832,
+            #         "flipped":                  False,
+            #         "has_visible_keypoints":    False,
+            #         "coco_url":                 'https://bellenot.web.cern.ch/bellenot/images/logo_full-plus-text-hor2.png',
+            #         "flickr_url":               'https://bellenot.web.cern.ch/bellenot/images/logo_full-plus-text-hor2.png',
+            #         "id":                       entry,
+            #         "dataset":                  self,
+            #         "image":                    '/media/disk1/jmills/crop_mask_train/crop_train1.root',
+            #         # "image":                    '/home/jmills/workdir/mask-rcnn.pytorch/data/particle_physics_train/root_files/croppedmask_lf_001.root',
+            #         "boxes":                    box_arr,
+            #         "max_overlaps":             max_overlaps_arr,
+            #         "seg_areas":                seg_areas_arr,
+            #         "gt_overlaps":              gt_overlaps_arr_sparse,
+            #         "is_crowd":                 is_crowd_arr,
+            #         "max_classes":              max_classes_arr,
+            #         "box_to_gt_ind_map":        box_to_gt_ind_map_arr,
+            #         "gt_classes":               gt_class_arr,
+            #         "segms":                    segms_list,
+            #         "plane":                    self.plane,
+            #     }
+            #     roidb.append(dict)
+            # ###
+            # logger.debug(
+            #     '_add_gt_annotations took {:.3f}s'.
+            #     format(self.debug_timer.toc(average=False))
+            # )
+            # if not cfg.DEBUG:
+            #     with open(cache_filepath, 'wb') as fp:
+            #         pickle.dump(roidb, fp, pickle.HIGHEST_PROTOCOL)
+            #     logger.info('Cache ground truth roidb to %s', cache_filepath)
+
+        # for ind in range(50):
+        #     if (roidb[ind]['id']==20):
+        #         for k,v in roidb[ind].items():
+        #                 if k != "segms" or True:
+        #                     print('Key: ',k, '      Value:  ', v)
+        #                 # else:
+        #                     # print(type(v))
+        #                     # print(type(v[0]))
+        #                     # print(type(v[0][0]))
+        #                     # print(type(v[0][0][0]))
+        #                     # for ind in range(0, len(v)):
+        #                     #     print()
+        #                     #     print('Segment: ', ind)
+        #                     #     print()
+        #                     #     print(v[ind])
+        #
+        #                 print('')
+
+
 
     def _prep_roidb_entry(self, entry):
         """Adds empty metadata fields to an roidb entry."""
         # Reference back to the parent dataset
         entry['dataset'] = self
-        # Make file_name an abs path
-        im_path = os.path.join(
-            self.image_directory, self.image_prefix + entry['file_name']
-        )
-        assert os.path.exists(im_path), 'Image \'{}\' not found'.format(im_path)
-        entry['image'] = im_path
+        # Make image file exists
+        assert os.path.exists(entry['image']), 'Image \'{}\' not found'.format(im_path)
         entry['flipped'] = False
         entry['has_visible_keypoints'] = False
         # Empty placeholders
@@ -420,6 +460,8 @@ class LArCVDataset(object):
         # 'box_to_gt_ind_map': Shape is (#rois). Maps from each roi to the index
         # in the list of rois that satisfy np.where(entry['gt_classes'] > 0)
         entry['box_to_gt_ind_map'] = np.empty((0), dtype=np.int32)
+
+
         if self.keypoints is not None:
             entry['gt_keypoints'] = np.empty(
                 (0, 3, self.num_keypoints), dtype=np.int32
@@ -429,93 +471,126 @@ class LArCVDataset(object):
             if k in entry:
                 del entry[k]
 
-    # def _add_gt_annotations(self, entry):
-    #     """Add ground truth annotation metadata to an roidb entry."""
-    #     ann_ids = self.COCO.getAnnIds(imgIds=entry['id'], iscrowd=None)
-    #     objs = self.COCO.loadAnns(ann_ids)
-    #     # Sanitize bboxes -- some are invalid
-    #     valid_objs = []
-    #     valid_segms = []
-    #     width = entry['width']
-    #     height = entry['height']
-    #     for obj in objs:
-    #         # crowd regions are RLE encoded and stored as dicts
-    #         if isinstance(obj['segmentation'], list):
-    #             # Valid polygons have >= 3 points, so require >= 6 coordinates
-    #             obj['segmentation'] = [
-    #                 p for p in obj['segmentation'] if len(p) >= 6
-    #             ]
-    #         if obj['area'] < cfg.TRAIN.GT_MIN_AREA:
-    #             continue
-    #         if 'ignore' in obj and obj['ignore'] == 1:
-    #             continue
-    #         # Convert form (x1, y1, w, h) to (x1, y1, x2, y2)
-    #         x1, y1, x2, y2 = box_utils.xywh_to_xyxy(obj['bbox'])
-    #         x1, y1, x2, y2 = box_utils.clip_xyxy_to_image(
-    #             x1, y1, x2, y2, height, width
-    #         )
-    #         # Require non-zero seg area and more than 1x1 box size
-    #         if obj['area'] > 0 and x2 > x1 and y2 > y1:
-    #             obj['clean_bbox'] = [x1, y1, x2, y2]
-    #             valid_objs.append(obj)
-    #             valid_segms.append(obj['segmentation'])
-    #     num_valid_objs = len(valid_objs)
-    #
-    #     boxes = np.zeros((num_valid_objs, 4), dtype=entry['boxes'].dtype)
-    #     gt_classes = np.zeros((num_valid_objs), dtype=entry['gt_classes'].dtype)
-    #     gt_overlaps = np.zeros(
-    #         (num_valid_objs, self.num_classes),
-    #         dtype=entry['gt_overlaps'].dtype
-    #     )
-    #     seg_areas = np.zeros((num_valid_objs), dtype=entry['seg_areas'].dtype)
-    #     is_crowd = np.zeros((num_valid_objs), dtype=entry['is_crowd'].dtype)
-    #     box_to_gt_ind_map = np.zeros(
-    #         (num_valid_objs), dtype=entry['box_to_gt_ind_map'].dtype
-    #     )
-    #     if self.keypoints is not None:
-    #         gt_keypoints = np.zeros(
-    #             (num_valid_objs, 3, self.num_keypoints),
-    #             dtype=entry['gt_keypoints'].dtype
-    #         )
-    #
-    #     im_has_visible_keypoints = False
-    #     for ix, obj in enumerate(valid_objs):
-    #         cls = self.json_category_id_to_contiguous_id[obj['category_id']]
-    #         boxes[ix, :] = obj['clean_bbox']
-    #         gt_classes[ix] = cls
-    #         seg_areas[ix] = obj['area']
-    #         is_crowd[ix] = obj['iscrowd']
-    #         box_to_gt_ind_map[ix] = ix
-    #         if self.keypoints is not None:
-    #             gt_keypoints[ix, :, :] = self._get_gt_keypoints(obj)
-    #             if np.sum(gt_keypoints[ix, 2, :]) > 0:
-    #                 im_has_visible_keypoints = True
-    #         if obj['iscrowd']:
-    #             # Set overlap to -1 for all classes for crowd objects
-    #             # so they will be excluded during training
-    #             gt_overlaps[ix, :] = -1.0
-    #         else:
-    #             gt_overlaps[ix, cls] = 1.0
-    #     entry['boxes'] = np.append(entry['boxes'], boxes, axis=0)
-    #     entry['segms'].extend(valid_segms)
-    #     # To match the original implementation:
-    #     # entry['boxes'] = np.append(
-    #     #     entry['boxes'], boxes.astype(np.int).astype(np.float), axis=0)
-    #     entry['gt_classes'] = np.append(entry['gt_classes'], gt_classes)
-    #     entry['seg_areas'] = np.append(entry['seg_areas'], seg_areas)
-    #     entry['gt_overlaps'] = np.append(
-    #         entry['gt_overlaps'].toarray(), gt_overlaps, axis=0
-    #     )
-    #     entry['gt_overlaps'] = scipy.sparse.csr_matrix(entry['gt_overlaps'])
-    #     entry['is_crowd'] = np.append(entry['is_crowd'], is_crowd)
-    #     entry['box_to_gt_ind_map'] = np.append(
-    #         entry['box_to_gt_ind_map'], box_to_gt_ind_map
-    #     )
-    #     if self.keypoints is not None:
-    #         entry['gt_keypoints'] = np.append(
-    #             entry['gt_keypoints'], gt_keypoints, axis=0
-    #         )
-    #         entry['has_visible_keypoints'] = im_has_visible_keypoints
+    def _add_gt_annotations(self, entry, clustermask_cluster_crop_chain):
+        """Add ground truth annotation metadata to an roidb entry."""
+        clustermask_cluster_crop_chain.GetEntry(entry['id'])
+        entry_clustermaskcluster_crop_data = clustermask_cluster_crop_chain.clustermask_masks_branch
+        clustermaskcluster_crop_array = entry_clustermaskcluster_crop_data.as_vector()
+
+
+        # ann_ids = self.COCO.getAnnIds(imgIds=entry['id'], iscrowd=None)
+        # objs = self.COCO.loadAnns(ann_ids)
+        # Sanitize bboxes -- some are invalid
+        valid_objs = []
+        valid_segms = []
+        width = entry['width']
+        height = entry['height']
+
+        for idx, mask in enumerate(clustermaskcluster_crop_array[entry['plane']]):
+            # crowd regions are RLE encoded and stored as dicts
+            # if isinstance(obj['segmentation'], list):
+            #     # Valid polygons have >= 3 points, so require >= 6 coordinates
+            #     obj['segmentation'] = [
+            #         p for p in obj['segmentation'] if len(p) >= 6
+            #     ]
+            obj = {}
+            mask_bin_arr = larcv.as_ndarray_mask(mask)
+            mask_box_arr = larcv.as_ndarray_bbox(mask)
+            new_mask = mask_bin_arr.astype(np.uint8).copy()
+            # opencv 3.2
+            mask_new, contours, hierarchy = cv2.findContours((new_mask).astype(np.uint8), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+            # n=0
+            polygon_list = []
+            for contour in contours:
+                # n=n+1
+                # print('Contour # ', n)
+                contour = contour.flatten().tolist()
+                if len(contour) >= 6:
+                    polygon_list.append([float(i) for i in contour])
+            # if len(polygon_list) == 0:
+            #     #Nothing in this segment don't include
+            #     # print('idx inside: ',idx)
+            #     # delete_rows.append(idx)
+            #     # print('idx inside: ',idx)
+            #     continue
+            obj['segmentation'] = polygon_list
+            obj['area'] = np.sum(mask_bin_arr)
+            if obj['area'] < cfg.TRAIN.GT_MIN_AREA:
+                continue
+
+            # Convert form (x1, y1, w, h) to (x1, y1, x2, y2)
+            x1, y1, x2, y2 = box_utils.xywh_to_xyxy([mask_box_arr[0], mask_box_arr[1], mask_box_arr[2], mask_box_arr[3]])
+            x1, y1, x2, y2 = box_utils.clip_xyxy_to_image(
+                x1, y1, x2, y2, height, width
+            )
+            # Require non-zero seg area and more than 1x1 box size
+            if obj['area'] > 0 and x2 > x1 and y2 > y1:
+                obj['clean_bbox'] = [x1, y1, x2, y2]
+                obj['mask'] = mask
+                obj['iscrowd'] = 0
+                valid_objs.append(obj)
+                valid_segms.append(polygon_list)
+        num_valid_objs = len(valid_objs)
+
+        boxes = np.zeros((num_valid_objs, 4), dtype=entry['boxes'].dtype)
+        gt_classes = np.zeros((num_valid_objs), dtype=entry['gt_classes'].dtype)
+        gt_overlaps = np.zeros(
+            (num_valid_objs, self.num_classes),
+            dtype=entry['gt_overlaps'].dtype
+        )
+        seg_areas = np.zeros((num_valid_objs), dtype=entry['seg_areas'].dtype)
+        is_crowd = np.zeros((num_valid_objs), dtype=entry['is_crowd'].dtype)
+        box_to_gt_ind_map = np.zeros(
+            (num_valid_objs), dtype=entry['box_to_gt_ind_map'].dtype
+        )
+        #This should be None always for us
+        if self.keypoints is not None:
+            gt_keypoints = np.zeros(
+                (num_valid_objs, 3, self.num_keypoints),
+                dtype=entry['gt_keypoints'].dtype
+            )
+
+        im_has_visible_keypoints = False
+        for ix, obj in enumerate(valid_objs):
+            cls = int(larcv.as_ndarray_bbox(obj['mask'])[4])
+
+            boxes[ix, :] = obj['clean_bbox']
+            gt_classes[ix] = cls
+            seg_areas[ix] = obj['area']
+            is_crowd[ix] = obj['iscrowd']
+            box_to_gt_ind_map[ix] = ix
+            #Again this keypoints shouldn't happen
+            if self.keypoints is not None:
+                gt_keypoints[ix, :, :] = self._get_gt_keypoints(obj)
+                if np.sum(gt_keypoints[ix, 2, :]) > 0:
+                    im_has_visible_keypoints = True
+            #This should also not trigger, we are using iscrowd =0
+            if obj['iscrowd']:
+                # Set overlap to -1 for all classes for crowd objects
+                # so they will be excluded during training
+                gt_overlaps[ix, :] = -1.0
+            else:
+                gt_overlaps[ix, cls] = 1.0
+        entry['boxes'] = np.append(entry['boxes'], boxes, axis=0)
+        entry['segms'].extend(valid_segms)
+        # To match the original implementation:
+        # entry['boxes'] = np.append(
+        #     entry['boxes'], boxes.astype(np.int).astype(np.float), axis=0)
+        entry['gt_classes'] = np.append(entry['gt_classes'], gt_classes)
+        entry['seg_areas'] = np.append(entry['seg_areas'], seg_areas)
+        entry['gt_overlaps'] = np.append(
+            entry['gt_overlaps'].toarray(), gt_overlaps, axis=0
+        )
+        entry['gt_overlaps'] = scipy.sparse.csr_matrix(entry['gt_overlaps'])
+        entry['is_crowd'] = np.append(entry['is_crowd'], is_crowd)
+        entry['box_to_gt_ind_map'] = np.append(
+            entry['box_to_gt_ind_map'], box_to_gt_ind_map
+        )
+        if self.keypoints is not None:
+            entry['gt_keypoints'] = np.append(
+                entry['gt_keypoints'], gt_keypoints, axis=0
+            )
+            entry['has_visible_keypoints'] = im_has_visible_keypoints
 
     def _add_gt_from_cache(self, roidb, cache_filepath):
         """Add ground truth annotation metadata from cached file."""
@@ -529,10 +604,9 @@ class LArCVDataset(object):
         for entry, cached_entry in zip(roidb, cached_roidb):
             values = [cached_entry[key] for key in self.valid_cached_keys]
             boxes, segms, gt_classes, seg_areas, gt_overlaps, is_crowd, \
-                box_to_gt_ind_map, width, height, flipped, has_visible_keypoints, coco_url, \
-                flickr_url, id, image, max_overlaps, max_classes, plane = values[:18]
+                box_to_gt_ind_map, width, height, image, id, plane, flipped = values[:13]
             if self.keypoints is not None:
-                gt_keypoints, has_visible_keypoints = values[18:]
+                gt_keypoints, has_visible_keypoints = values[13:]
             # entry['boxes'] = np.append(entry['boxes'], boxes, axis=0)
             # entry['segms'].extend(segms)
             # # To match the original implementation:
@@ -542,33 +616,27 @@ class LArCVDataset(object):
             # entry['seg_areas'] = np.append(entry['seg_areas'], seg_areas)
             # entry['gt_overlaps'] = scipy.sparse.csr_matrix(gt_overlaps)
             # entry['is_crowd'] = np.append(entry['is_crowd'], is_crowd)
-            # entry['box_to_gt_ind_map'] = np.append(
-            #     entry['box_to_gt_ind_map'], box_to_gt_ind_map
-            # )
-            entry['boxes'] =boxes
-            entry['segms'] =segms
-            entry['gt_classes'] =gt_classes
-            entry['seg_areas'] =seg_areas
-            entry['gt_overlaps'] =scipy.sparse.csr_matrix(gt_overlaps)
-            entry['is_crowd'] =is_crowd
-            entry['box_to_gt_ind_map'] =box_to_gt_ind_map
-
-            entry['width'] = width
-            entry['height'] = height
+            # entry['box_to_gt_ind_map'] = np.append(entry['box_to_gt_ind_map'], box_to_gt_ind_map
             entry['flipped'] = flipped
-            entry['has_visible_keypoints'] = has_visible_keypoints
-            entry['coco_url'] = coco_url
-            entry['flickr_url'] = flickr_url
+            entry['plane'] = plane
             entry['id'] = id
             entry['image'] = image
-            entry['max_overlaps'] = max_overlaps
-            entry['max_classes'] = max_classes
-            entry['plane'] = plane
+            entry['width'] = width
+            entry['height'] = height
+            entry['boxes'] = boxes
+            entry['segms'] = segms
+            # To match the original implementation:
+            # entry['boxes'] = np.append(
+            #     entry['boxes'], boxes.astype(np.int).astype(np.float), axis=0)
+            entry['gt_classes'] = gt_classes
+            entry['seg_areas'] = seg_areas
+            entry['gt_overlaps'] = scipy.sparse.csr_matrix(gt_overlaps)
+            entry['is_crowd'] = is_crowd
+            entry['box_to_gt_ind_map'] = box_to_gt_ind_map
             if self.keypoints is not None:
-                entry['gt_keypoints'] = np.append(
-                    entry['gt_keypoints'], gt_keypoints, axis=0
-                )
+                entry['gt_keypoints'] = gt_keypoints
                 entry['has_visible_keypoints'] = has_visible_keypoints
+
 
     def _add_proposals_from_file(
         self, roidb, proposal_file, min_proposal_size, top_k, crowd_thresh
@@ -788,20 +856,7 @@ def _merge_proposal_boxes_into_roidb(roidb, box_list):
             # Those boxes with non-zero overlap with gt boxes
             I = np.where(maxes > 0)[0]
             # Record max overlaps with the class of the appropriate gt box
-            # print()
-            # print()
-            # print()
-            # print()
-            #
-            # print('I',type(I))
-            # print('I[0]',type(I[0]))
-            # print('gt_classes[argmaxes[I]]',type(gt_classes[argmaxes[I]]))
-            # print('gt_classes[argmaxes[I]][0]',type(gt_classes[argmaxes[I]][0]))
-            #
-            # print()
-            # print()
-            # print()
-            # print()
+
 
 
             gt_overlaps[I, gt_classes[argmaxes[I]]] = maxes[I]
