@@ -177,6 +177,7 @@ class LArCVDataset(object):
         ###Try making my own Roidb using root file
         ###
         roidb = []
+        # _files = ['/home/jmills/workdir/mask-rcnn.pytorch/data/particle_physics_train/root_files/croppedmask_lf_001.root']
         _files = ['/media/disk1/jmills/crop_mask_train/crop_train1.root']
         # _f = ROOT.TFile(_files[0])
         image2d_adc_crop_chain = ROOT.TChain("image2d_adc_tree")
@@ -190,6 +191,7 @@ class LArCVDataset(object):
         assert image2d_adc_crop_chain.GetEntries() == clustermask_cluster_crop_chain.GetEntries()
 
         self.NUM_IMAGES=clustermask_cluster_crop_chain.GetEntries()
+        # self.NUM_IMAGES=1
 
         for entry in range(self.NUM_IMAGES):
             dict = {
@@ -598,7 +600,7 @@ class LArCVDataset(object):
         with open(cache_filepath, 'rb') as fp:
             cached_roidb = pickle.load(fp)
 
-
+        # print(len(roidb), len(cached_roidb))
         assert len(roidb) == len(cached_roidb)
 
         for entry, cached_entry in zip(roidb, cached_roidb):

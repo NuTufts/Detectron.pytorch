@@ -36,6 +36,7 @@ class mask_rcnn_outputs(nn.Module):
         self._init_weights()
 
     def _init_weights(self):
+
         if not cfg.MRCNN.USE_FC_OUTPUT and cfg.MRCNN.CLS_SPECIFIC_MASK and \
                 cfg.MRCNN.CONV_INIT=='MSRAFill':
             # Use GaussianFill for class-agnostic mask prediction; fills based on
@@ -92,10 +93,77 @@ def mask_rcnn_losses(masks_pred, masks_int32):
     n_rois, n_classes, _, _ = masks_pred.size()
     device_id = masks_pred.get_device()
     masks_gt = Variable(torch.from_numpy(masks_int32.astype('float32'))).cuda(device_id)
+    # masks_gt = (masks_gt != 0).float()
+
+    # for roi in range(n_rois):
+    #     print()
+    #     for i in range(7):
+    #         print('Class:', i)
+    #         for x in range(14):
+    #             for y in range(14):
+    #                 print(masks_gt[roi][i*7+x*14+y].item(), end=" ")
+    #             print()
+
+
+
+
     weight = (masks_gt > -1).float()  # masks_int32 {1, 0, -1}, -1 means ignore
+    total_for_avg = weight.sum()
+
+    num_on  = torch.sum(masks_gt>0).item()
+    num_off = torch.sum(masks_gt==0).item()
+    num_inv = torch.sum(masks_gt==-1).item()
+    total_num = num_on+num_off
+    dim1, dim2 = masks_gt.shape
+    # print('on: ', num_on, " off: ", num_off, " inv: ",num_inv)
+    # print(dim1*dim2 , ", ", num_on+num_off+num_inv)
+    if num_off==0:
+        num_off=1
+    if num_on ==0:
+        num_on=1
+
+    weight = weight  * ( (1-masks_gt)*total_num/num_off + (masks_gt)*total_num/num_on )
+
+
+    # print()
+    # # print('masks_gt is type: ', type(masks_gt))
+    # print('masks_pred shape is: ', masks_pred.shape)
+    # print('max', torch.max(masks_pred).item())
+    # print('min', torch.min(masks_pred).item())
+    # print()
+
+    # print()
+    # # print('masks_gt is type: ', type(masks_gt))
+    # print('masks_pred.view(n_rois, -1) shape is: ', masks_pred.view(n_rois, -1).shape)
+    # print('max', torch.max(masks_pred.view(n_rois, -1)).item())
+    # print('min', torch.min(masks_pred.view(n_rois, -1)).item())
+    # print()
+
+    # print()
+    # print('masks_gt is type: ', type(masks_gt))
+    # print('masks_gt shape is: ', masks_gt.shape)
+    # print('max', torch.max(masks_gt).item())
+    # print('min', torch.min(masks_gt).item())
+    # print()
+    #
+    # print()
+    # print('weight is type: ', type(weight))
+    # print('weight shape is: ', weight.shape)
+    # print('max', torch.max(weight).item())
+    # print('min', torch.min(weight).item())
+    # print()
+
+    # print('Pred Shape: ', masks_pred.view(n_rois, -1).shape, "   Truth Shape: ", masks_gt.shape)
+    # print()
+    # print()
+    # print()
     loss = F.binary_cross_entropy_with_logits(
         masks_pred.view(n_rois, -1), masks_gt, weight, size_average=False)
-    loss /= weight.sum()
+    # print()
+    # print('loss is type: ', type(loss))
+    # print('loss shape is: ', loss.shape)
+    # print()
+    loss /= total_for_avg
     return loss * cfg.MRCNN.WEIGHT_LOSS_MASK
 
 
@@ -302,6 +370,7 @@ class mask_rcnn_fcn_head_v0upshare(nn.Module):
         return detectron_weight_mapping, orphan_in_detectron
 
     def forward(self, x, rpn_ret, roi_has_mask_int32=None):
+        # print('Then I am here!')
         if self.training:
             # On training, we share the res5 computation with bbox head, so it's necessary to
             # sample 'useful' batches from the input x (res5_2_sum). 'Useful' means that the
@@ -309,8 +378,11 @@ class mask_rcnn_fcn_head_v0upshare(nn.Module):
             # roi_has_mask_int32.
             inds = np.nonzero(roi_has_mask_int32 > 0)[0]
             inds = Variable(torch.from_numpy(inds)).cuda(x.get_device())
+            # print("feat, before upconv",x.shape)
             x = x[inds]
+            # print("feat, upconv: ", x.shape)
         else:
+
             # On testing, the computation is not shared with bbox head. This time input `x`
             # is the output features from the backbone network
             x = self.roi_xform(
@@ -323,6 +395,7 @@ class mask_rcnn_fcn_head_v0upshare(nn.Module):
             )
             x = self.res5(x)
         x = self.upconv5(x)
+
         x = F.relu(x, inplace=True)
         return x
 

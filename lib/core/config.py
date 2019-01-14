@@ -85,7 +85,7 @@ __C.TRAIN.PROPOSAL_FILES = ()
 # Snapshot (model checkpoint) period
 # Divide by NUM_GPUS to determine actual period (e.g., 20000/8 => 2500 iters)
 # to allow for linear training schedule scaling
-__C.TRAIN.SNAPSHOT_ITERS = 20000
+__C.TRAIN.SNAPSHOT_ITERS = 10000
 
 # Normalize the targets (subtract empirical mean, divide by empirical stddev)
 __C.TRAIN.BBOX_NORMALIZE_TARGETS = True
@@ -107,6 +107,9 @@ __C.TRAIN.ASPECT_GROUPING = True
 __C.TRAIN.ASPECT_CROPPING = False
 __C.TRAIN.ASPECT_HI = 2
 __C.TRAIN.ASPECT_LO = 0.5
+
+# For printing Out images in the midst of training
+__C.TRAIN.MAKE_IMAGES = False
 
 # ---------------------------------------------------------------------------- #
 # RPN training options
@@ -770,7 +773,7 @@ __C.MRCNN.CONV_INIT = 'GaussianFill'
 __C.MRCNN.CLS_SPECIFIC_MASK = True
 
 # Multi-task loss weight for masks
-__C.MRCNN.WEIGHT_LOSS_MASK = 1.0
+__C.MRCNN.WEIGHT_LOSS_MASK = 0.1
 
 # Binarization threshold for converting soft masks to hard masks
 __C.MRCNN.THRESH_BINARIZE = 0.5
@@ -939,7 +942,9 @@ __C.BBOX_XFORM_CLIP = np.log(1000. / 16.)
 # We use the same pixel mean for all networks even though it's not exactly what
 # they were trained with
 # "Fun" fact: the history of where these values comes from is lost (From Detectron lol)
-__C.PIXEL_MEANS = np.array([[[102.9801, 115.9465, 122.7717]]])
+# __C.PIXEL_MEANS = np.array([[[102.9801, 115.9465, 122.7717]]])
+__C.PIXEL_MEANS = np.array([[[0.0, 0.0, 0.0]]])
+
 
 # For reproducibility
 __C.RNG_SEED = 3

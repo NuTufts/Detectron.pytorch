@@ -13,6 +13,13 @@ import numpy as np
 from torch.utils.data import Dataset
 
 
+import datasets.dummy_datasets as datasets
+import numpy as np
+import utils.vis as vis_utils
+import cv2
+
+
+
 def get_minibatch_blob_names(is_training=True):
     """Return blob names in the order in which they are read by the data loader.
     """
@@ -61,24 +68,45 @@ def _get_image_blob(roidb):
         0, high=len(cfg.TRAIN.SCALES), size=num_images)
     processed_ims = []
     im_scales = []
+    image2d_adc_crop_chain = ROOT.TChain("image2d_adc_tree")
     for i in range(num_images):
         #for root files:
-        image2d_adc_crop_chain = ROOT.TChain("image2d_adc_tree")
-        image2d_adc_crop_chain.AddFile(roidb[i]['image'])
 
+        image2d_adc_crop_chain.AddFile(roidb[i]['image'])
         image2d_adc_crop_chain.GetEntry(roidb[i]['id'])
         entry_image2dadc_crop_data = image2d_adc_crop_chain.image2d_adc_branch
         image2dadc_crop_array = entry_image2dadc_crop_data.as_vector()
         im_2d = larcv.as_ndarray(image2dadc_crop_array[roidb[i]['plane']])
         im = np.zeros ((roidb[i]['height'],roidb[i]['width'],3))
-        # print('height: ',roidb[i]['height'] , "     dim1: ",len(im_2d))
-        # print('width: ',roidb[i]['width'] , "     dim2: ",len(im_2d[0]))
+
 
         for dim1 in range(len(im_2d)):
             for dim2 in range(len(im_2d[0])):
                 im[dim1][dim2][0] = im_2d[dim1][dim2]
                 im[dim1][dim2][1] = im_2d[dim1][dim2]
                 im[dim1][dim2][2] = im_2d[dim1][dim2]
+        if cfg.TRAIN.MAKE_IMAGES:
+            boxes = np.array([[50,50,60,60,.99],[1,1,5,5,.99]])
+
+            im_numpy = im
+            # im_numpy = np.swapaxes(im_numpy,2,1)
+            # im_numpy = np.swapaxes(im_numpy,2,0)
+            im_numpy[im_numpy>0] = 100
+            im_numpy[im_numpy<=0] =0
+            vis_utils.vis_one_image(
+                im_numpy,
+                'GoodImage'+str(i),
+                'hmmm/',
+                boxes,
+                None,
+                None,
+                dataset=datasets.get_particle_dataset(),
+                box_alpha=0.3,
+                show_class=True,
+                thresh=0.7,
+                kp_thresh=2,
+                plain_img=True
+            )
 
         # #for jpgs:
         # im = cv2.imread(roidb[i]['image'])
@@ -93,7 +121,9 @@ def _get_image_blob(roidb):
         # im = im[:, :, ::-1]
         if roidb[i]['flipped']:
             im = im[:, ::-1, :]
+
         target_size = cfg.TRAIN.SCALES[scale_inds[i]]
+
         im, im_scale = blob_utils.prep_im_for_blob(
             im, cfg.PIXEL_MEANS, [target_size], cfg.TRAIN.MAX_SIZE)
         im_scales.append(im_scale[0])
@@ -101,5 +131,6 @@ def _get_image_blob(roidb):
 
     # Create a blob to hold the input images [n, c, h, w]
     blob = blob_utils.im_list_to_blob(processed_ims)
+
 
     return blob, im_scales

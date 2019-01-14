@@ -19,6 +19,11 @@ import utils.blob as blob_utils
 import utils.net as net_utils
 import utils.resnet_weights_helper as resnet_utils
 
+import datasets.dummy_datasets as datasets
+import numpy as np
+import utils.vis as vis_utils
+import cv2
+
 logger = logging.getLogger(__name__)
 
 
@@ -151,14 +156,67 @@ class Generalized_RCNN(nn.Module):
         device_id = im_data.get_device()
 
         return_dict = {}  # A dict to collect return variables
+        # print('im_data', type(im_data), "       Shape:", im_data.shape)
+        # print('im_info', type(im_info), "       Shape:", im_info.shape)
+        # for x in range(1):
+        #     for y in range(3):
+        #         print(im_info[x][y], end=',  ')
+        #     print()
+        # if cfg.TRAIN.MAKE_IMAGES:
+        #     boxes = np.array([[50,50,60,60,.99],[1,1,5,5,.99]])
+        #     im_numpy = im_data.cpu()[0].numpy()
+        #     im_numpy = np.swapaxes(im_numpy,2,1)
+        #     im_numpy = np.swapaxes(im_numpy,2,0)
+        #     im_numpy[im_numpy>0] = 100
+        #     im_numpy[im_numpy<=0] =0
+        #
+        #     # print('LENGTH:', len(im_numpy),len(im_numpy[0]))
+        #     vis_utils.vis_one_image(
+        #         im_numpy,
+        #         'model_builder_im_data_before_conv',
+        #         'hmmm/',
+        #         boxes,
+        #         None,
+        #         None,
+        #         dataset=datasets.get_particle_dataset(),
+        #         box_alpha=0.3,
+        #         show_class=True,
+        #         thresh=0.7,
+        #         kp_thresh=2,
+        #         plain_img=True
+        #     )
+
 
         blob_conv = self.Conv_Body(im_data)
 
         rpn_ret = self.RPN(blob_conv, im_info, roidb)
+        if cfg.TRAIN.MAKE_IMAGES:
+            boxes = np.array([[50,50,60,60,.99],[1,1,5,5,.99]])
+            im_numpy = im_data.cpu()[0].numpy()
+            im_numpy = np.swapaxes(im_numpy,2,1)
+            im_numpy = np.swapaxes(im_numpy,2,0)
+            im_numpy[im_numpy>0] = 100
+            im_numpy[im_numpy<=0] =0
 
-        # if self.training:
-        #     # can be used to infer fg/bg ratio
-        #     return_dict['rois_label'] = rpn_ret['labels_int32']
+            # print('LENGTH:', len(im_numpy),len(im_numpy[0]))
+            vis_utils.vis_one_image(
+                im_numpy,
+                'model_builder_im_data',
+                'hmmm/',
+                boxes,
+                None,
+                None,
+                dataset=datasets.get_particle_dataset(),
+                box_alpha=0.3,
+                show_class=True,
+                thresh=0.7,
+                kp_thresh=2,
+                plain_img=True
+            )
+
+        if self.training:
+            # can be used to infer fg/bg ratio
+            return_dict['rois_label'] = rpn_ret['labels_int32']
 
         if cfg.FPN.FPN_ON:
             # Retain only the blobs that will be used for RoI heads. `blob_conv` may include
@@ -205,6 +263,8 @@ class Generalized_RCNN(nn.Module):
 
             if cfg.MODEL.MASK_ON:
                 if getattr(self.Mask_Head, 'SHARE_RES5', False):
+                    # print('First I am Here!')
+                    # print("res5_feat.shape", res5_feat.shape)
                     mask_feat = self.Mask_Head(res5_feat, rpn_ret,
                                                roi_has_mask_int32=rpn_ret['roi_has_mask_int32'])
                 else:
@@ -318,6 +378,7 @@ class Generalized_RCNN(nn.Module):
                 if cfg.CROP_RESIZE_WITH_MAX_POOL:
                     xform_out = F.max_pool2d(xform_out, 2, 2)
             elif method == 'RoIAlign':
+                # print('RESOLUTION', resolution)
                 xform_out = RoIAlignFunction(
                     resolution, resolution, spatial_scale, sampling_ratio)(blobs_in, rois)
 

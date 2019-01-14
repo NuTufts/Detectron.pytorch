@@ -125,6 +125,11 @@ def polys_to_boxes(polys):
   boxes_from_polys = np.zeros((len(polys), 4), dtype=np.float32)
   for i in range(len(polys)):
     poly = polys[i]
+    #
+    # for ix in range(len(poly)):
+    #     print("                         ix:", ix)
+    #     tester=min(poly[ix][::2])
+
     x0 = min(min(p[::2]) for p in poly)
     x1 = max(max(p[::2]) for p in poly)
     y0 = min(min(p[1::2]) for p in poly)

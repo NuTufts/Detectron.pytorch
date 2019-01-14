@@ -37,6 +37,7 @@ class RoiDataLoader(data.Dataset):
             self.crop_data(blobs, ratio)
             # Check bounding box
             entry = blobs['roidb'][0]
+
             boxes = entry['boxes']
             invalid = (boxes[:, 0] == boxes[:, 2]) | (boxes[:, 1] == boxes[:, 3])
             valid_inds = np.nonzero(~ invalid)[0]
@@ -118,7 +119,7 @@ class RoiDataLoader(data.Dataset):
 
 def cal_minibatch_ratio(ratio_list):
     """Given the ratio_list, we want to make the RATIO same for each minibatch on each GPU.
-    Note: this only work for 1) cfg.TRAIN.MAX_SIZE is ignored during `prep_im_for_blob` 
+    Note: this only work for 1) cfg.TRAIN.MAX_SIZE is ignored during `prep_im_for_blob`
     and 2) cfg.TRAIN.SCALES containing SINGLE scale.
     Since all prepared images will have same min side length of cfg.TRAIN.SCALES[0], we can
      pad and batch images base on that.

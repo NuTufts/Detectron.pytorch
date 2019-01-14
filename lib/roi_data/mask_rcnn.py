@@ -39,6 +39,24 @@ def add_mask_rcnn_blobs(blobs, sampled_boxes, roidb, im_scale, batch_idx):
     polys_gt_inds = np.where((roidb['gt_classes'] > 0) &
                              (roidb['is_crowd'] == 0))[0]
     polys_gt = [roidb['segms'][i] for i in polys_gt_inds]
+    for i in range(len(polys_gt)):
+        # print("i is:", i)
+        poly = polys_gt[i]
+        if len(poly) ==0:
+            print()
+            print('Cheated, and made my own box')
+            print()
+            poly = [[0.0, 0.0, 0.0, 4.0, 4.0, 4.0, 4.0, 0.0]]
+            polys_gt[i] = poly
+        # for ix in range(len(poly)):
+        #     p=poly[ix]
+        #     print('polygon in poly', type(p))
+        #     if len(p) > 8:
+        #         print(p[:8])
+        #     else:
+        #         print('len(p) less than 8, p is: ', p)
+            # for k, v in roidb.items():
+            #     print('key', k)
     boxes_from_polys = segm_utils.polys_to_boxes(polys_gt)
     # boxes_from_polys = [roidb['boxes'][i] for i in polys_gt_inds]
     fg_inds = np.where(blobs['labels_int32'] > 0)[0]
@@ -48,7 +66,13 @@ def add_mask_rcnn_blobs(blobs, sampled_boxes, roidb, im_scale, batch_idx):
     if fg_inds.shape[0] > 0:
         # Class labels for the foreground rois
         mask_class_labels = blobs['labels_int32'][fg_inds]
+        # print('mask_class_labels', mask_class_labels)
         masks = blob_utils.zeros((fg_inds.shape[0], M**2), int32=True)
+        # print('masks type', type(masks), masks.shape)
+        # print('masks max:', masks.max())
+        # print('masks min:', masks.min())
+        # print()
+
 
         # Find overlap between all foreground rois and the bounding boxes
         # enclosing each segmentation
@@ -71,6 +95,7 @@ def add_mask_rcnn_blobs(blobs, sampled_boxes, roidb, im_scale, batch_idx):
             mask = np.array(mask > 0, dtype=np.int32)  # Ensure it's binary
             masks[i, :] = np.reshape(mask, M**2)
     else:  # If there are no fg masks (it does happen)
+
         # The network cannot handle empty blobs, so we must provide a mask
         # We simply take the first bg roi, given it an all -1's mask (ignore
         # label), and label it with class zero (bg).
@@ -83,7 +108,16 @@ def add_mask_rcnn_blobs(blobs, sampled_boxes, roidb, im_scale, batch_idx):
         mask_class_labels = blob_utils.zeros((1, ))
         # Mark that the first roi has a mask
         roi_has_mask[0] = 1
-
+    # print('Before Expansion')
+    # for mask in range(len(masks)):
+    #     if mask >5:
+    #         break
+    #     if np.amax(masks[mask]) > 0:
+    #         for x in range(14):
+    #             for y in range(14):
+    #                 print(masks[mask][x*14+y], end=' ')
+    #             print()
+    #         print()
     if cfg.MRCNN.CLS_SPECIFIC_MASK:
         masks = _expand_to_class_specific_mask_targets(masks,
                                                        mask_class_labels)
@@ -96,6 +130,24 @@ def add_mask_rcnn_blobs(blobs, sampled_boxes, roidb, im_scale, batch_idx):
     # Update blobs dict with Mask R-CNN blobs
     blobs['mask_rois'] = rois_fg
     blobs['roi_has_mask_int32'] = roi_has_mask
+
+    # print('masks type', type(masks), masks.shape)
+
+    # for mask in range(len(masks)):
+    #     if mask >5:
+    #         break
+    #     if np.amax(masks[mask]) > 0:
+    #         print('MAX:     ',np.amax(masks[mask]))
+    #         for m in range(7):
+    #             print('Class:' , m)
+    #             for x in range(14):
+    #                 for y in range(14):
+    #                     print(masks[mask][m*14*14+x*14+y], end=' ')
+    #                 print()
+    #             print()
+    #
+    # print()
+
     blobs['masks_int32'] = masks
 
 

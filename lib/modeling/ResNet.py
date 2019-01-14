@@ -147,7 +147,10 @@ class ResNet_roi_conv5_head(nn.Module):
             spatial_scale=self.spatial_scale,
             sampling_ratio=cfg.FAST_RCNN.ROI_XFORM_SAMPLING_RATIO
         )
+        # print('x in RESNET.PY', x.shape)
+
         res5_feat = self.res5(x)
+        # print('res5_feat in RESNET.PY', res5_feat.shape)
         x = self.avgpool(res5_feat)
         if cfg.MODEL.SHARE_RES5 and self.training:
             return x, res5_feat

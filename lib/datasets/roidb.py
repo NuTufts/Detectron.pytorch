@@ -29,7 +29,7 @@ import utils.keypoints as keypoint_utils
 import utils.segms as segm_utils
 import utils.blob as blob_utils
 from core.config import cfg
-from .json_dataset import JsonDataset
+# from .json_dataset import JsonDataset
 from .larcvdataset import LArCVDataset
 
 logger = logging.getLogger(__name__)
@@ -135,11 +135,12 @@ def filter_for_training(roidb):
         #   (2) At least one background RoI
         overlaps = entry['max_overlaps']
         # find boxes with sufficient overlap
-
+        # print('overlaps', overlaps)
         fg_inds = np.where(overlaps >= cfg.TRAIN.FG_THRESH)[0]
         # Select background RoIs as those within [BG_THRESH_LO, BG_THRESH_HI)
         bg_inds = np.where((overlaps < cfg.TRAIN.BG_THRESH_HI) &
                            (overlaps >= cfg.TRAIN.BG_THRESH_LO))[0]
+
         # image is only valid if such boxes exist
         valid = len(fg_inds) > 0 or len(bg_inds) > 0
         if cfg.MODEL.KEYPOINTS_ON:
