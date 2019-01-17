@@ -19,10 +19,12 @@ import utils.blob as blob_utils
 import utils.net as net_utils
 import utils.resnet_weights_helper as resnet_utils
 
+#to Vis
 import datasets.dummy_datasets as datasets
 import numpy as np
 import utils.vis as vis_utils
 import cv2
+from core.test import segm_results
 
 logger = logging.getLogger(__name__)
 
@@ -156,63 +158,16 @@ class Generalized_RCNN(nn.Module):
         device_id = im_data.get_device()
 
         return_dict = {}  # A dict to collect return variables
-        # print('im_data', type(im_data), "       Shape:", im_data.shape)
-        # print('im_info', type(im_info), "       Shape:", im_info.shape)
-        # for x in range(1):
-        #     for y in range(3):
-        #         print(im_info[x][y], end=',  ')
-        #     print()
-        # if cfg.TRAIN.MAKE_IMAGES:
-        #     boxes = np.array([[50,50,60,60,.99],[1,1,5,5,.99]])
-        #     im_numpy = im_data.cpu()[0].numpy()
-        #     im_numpy = np.swapaxes(im_numpy,2,1)
-        #     im_numpy = np.swapaxes(im_numpy,2,0)
-        #     im_numpy[im_numpy>0] = 100
-        #     im_numpy[im_numpy<=0] =0
-        #
-        #     # print('LENGTH:', len(im_numpy),len(im_numpy[0]))
-        #     vis_utils.vis_one_image(
-        #         im_numpy,
-        #         'model_builder_im_data_before_conv',
-        #         'hmmm/',
-        #         boxes,
-        #         None,
-        #         None,
-        #         dataset=datasets.get_particle_dataset(),
-        #         box_alpha=0.3,
-        #         show_class=True,
-        #         thresh=0.7,
-        #         kp_thresh=2,
-        #         plain_img=True
-        #     )
+
 
 
         blob_conv = self.Conv_Body(im_data)
-
         rpn_ret = self.RPN(blob_conv, im_info, roidb)
-        if cfg.TRAIN.MAKE_IMAGES:
-            boxes = np.array([[50,50,60,60,.99],[1,1,5,5,.99]])
-            im_numpy = im_data.cpu()[0].numpy()
-            im_numpy = np.swapaxes(im_numpy,2,1)
-            im_numpy = np.swapaxes(im_numpy,2,0)
-            im_numpy[im_numpy>0] = 100
-            im_numpy[im_numpy<=0] =0
+        
 
-            # print('LENGTH:', len(im_numpy),len(im_numpy[0]))
-            vis_utils.vis_one_image(
-                im_numpy,
-                'model_builder_im_data',
-                'hmmm/',
-                boxes,
-                None,
-                None,
-                dataset=datasets.get_particle_dataset(),
-                box_alpha=0.3,
-                show_class=True,
-                thresh=0.7,
-                kp_thresh=2,
-                plain_img=True
-            )
+
+
+
 
         if self.training:
             # can be used to infer fg/bg ratio
@@ -260,7 +215,6 @@ class Generalized_RCNN(nn.Module):
             return_dict['losses']['loss_cls'] = loss_cls
             return_dict['losses']['loss_bbox'] = loss_bbox
             return_dict['metrics']['accuracy_cls'] = accuracy_cls
-
             if cfg.MODEL.MASK_ON:
                 if getattr(self.Mask_Head, 'SHARE_RES5', False):
                     # print('First I am Here!')
@@ -272,7 +226,89 @@ class Generalized_RCNN(nn.Module):
                 mask_pred = self.Mask_Outs(mask_feat)
                 # return_dict['mask_pred'] = mask_pred
                 # mask loss
+
+                # print(rpn_ret['mask_rois'])
                 loss_mask = mask_rcnn_heads.mask_rcnn_losses(mask_pred, rpn_ret['masks_int32'])
+
+                if cfg.TRAIN.MAKE_IMAGES and self.training:
+
+                    boxes_2 = np.empty((len(rpn_ret['mask_rois']),4))
+                    boxes = [[],[],[],[],[],[],[]]
+                    boxes_3 =[np.empty((0,5)),
+                                np.empty((len(rpn_ret['mask_rois']),5)),
+                                np.empty((0,5)),
+                                np.empty((0,5)),
+                                np.empty((0,5)),
+                                np.empty((0,5)),
+                                np.empty((0,5))
+                                ]
+                    print(type(boxes))
+                    for box in range(len(rpn_ret['mask_rois'])):
+
+                        one_box=[rpn_ret['mask_rois'][box][1]]
+                        one_box.append(rpn_ret['mask_rois'][box][2])
+                        one_box.append(rpn_ret['mask_rois'][box][3])
+                        one_box.append(rpn_ret['mask_rois'][box][4])
+                        one_box.append(1.0)
+                        boxes_2[box][0] = rpn_ret['mask_rois'][box][1]
+                        boxes_2[box][1] = rpn_ret['mask_rois'][box][2]
+                        boxes_2[box][2] = rpn_ret['mask_rois'][box][3]
+                        boxes_2[box][3] = rpn_ret['mask_rois'][box][4]
+
+                        boxes[1].append(one_box)
+                        # print(boxes_3[1].shape)
+                        # print(box)
+                        boxes_3[1][box][0] = rpn_ret['mask_rois'][box][1]
+                        boxes_3[1][box][1] = rpn_ret['mask_rois'][box][2]
+                        boxes_3[1][box][2] = rpn_ret['mask_rois'][box][3]
+                        boxes_3[1][box][3] = rpn_ret['mask_rois'][box][4]
+                        boxes_3[1][box][4] = 1.0
+
+
+                    mask_pred = mask_pred.data.cpu().numpy().squeeze()
+                    M = cfg.MRCNN.RESOLUTION
+                    mask_pred = mask_pred.reshape([-1, cfg.MODEL.NUM_CLASSES, M, M])
+
+                    # print('Type boxes: ', type(boxes_2))
+                    # print('Shape boxes: ', boxes_2.shape)
+                    # print('boxes: ', boxes_2)
+                    # print('Type cls_boxes: ', type(boxes_3))
+                    # print('len cls_boxes: ', len(boxes_3))
+                    # print('len cls_boxes[1]: ', len(boxes_3[1]))
+                    # print('type cls_boxes[1]: ', type(boxes_3[1]))
+
+                    for index in range(len(boxes_3)):
+                        for index2 in range(len(boxes_3[index])):
+                            print(boxes_3[index][index2])
+                    cls_segms = segm_results(boxes_3, mask_pred, boxes_2, 512, 832)
+
+                    print('How many boxes: ', len(boxes))
+                    print('How many in each box:', len(boxes[0]))
+
+                    im_numpy = im_data.cpu()[0].numpy()
+                    im_numpy = np.swapaxes(im_numpy,2,1)
+                    im_numpy = np.swapaxes(im_numpy,2,0)
+                    im_numpy[im_numpy>0] = 100
+                    im_numpy[im_numpy<=0] =0
+
+                    # print('LENGTH:', len(im_numpy),len(im_numpy[0]))
+                    vis_utils.vis_one_image(
+                        im_numpy,
+                        'model_builder_im_data_infer',
+                        'hmmm/',
+                        boxes,
+                        cls_segms,
+                        None,
+                        dataset=datasets.get_particle_dataset(),
+                        box_alpha=0.3,
+                        show_class=False,
+                        thresh=0.7,
+                        kp_thresh=2,
+                        plain_img=False,
+                        show_roi_num=True
+                    )
+
+
                 return_dict['losses']['loss_mask'] = loss_mask
 
             if cfg.MODEL.KEYPOINTS_ON:

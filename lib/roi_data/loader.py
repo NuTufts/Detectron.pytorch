@@ -21,6 +21,7 @@ class RoiDataLoader(data.Dataset):
         self.training = training
         self.DATA_SIZE = len(self._roidb)
 
+
     def __getitem__(self, index_tuple):
         index, ratio = index_tuple
         single_db = [self._roidb[index]]

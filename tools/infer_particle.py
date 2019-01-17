@@ -163,7 +163,7 @@ def main():
         os.makedirs(args.output_dir)
 
 
-    for i in xrange(20):
+    for i in xrange(1):
         print('img', i)
         image2d_adc_crop_chain.GetEntry(i)
         entry_image2dadc_crop_data = image2d_adc_crop_chain.image2d_adc_branch
@@ -207,7 +207,8 @@ def main():
             box_alpha=0.3,
             show_class=True,
             thresh=0.7,
-            kp_thresh=2
+            kp_thresh=2,
+            no_adc=False
         )
 
     if args.merge_pdfs and num_images > 1:

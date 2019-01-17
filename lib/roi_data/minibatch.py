@@ -12,7 +12,7 @@ from larcv import larcv
 import numpy as np
 from torch.utils.data import Dataset
 
-
+#to vis
 import datasets.dummy_datasets as datasets
 import numpy as np
 import utils.vis as vis_utils
@@ -68,45 +68,48 @@ def _get_image_blob(roidb):
         0, high=len(cfg.TRAIN.SCALES), size=num_images)
     processed_ims = []
     im_scales = []
-    image2d_adc_crop_chain = ROOT.TChain("image2d_adc_tree")
+
+    # image2d_adc_crop_chain = ROOT.TChain("image2d_adc_tree")
+    # image2d_adc_crop_chain.AddFile(roidb[i]['image'])
+    # for k,v in roidb[0].items():
+    #     print('key', k)
     for i in range(num_images):
         #for root files:
-
-        image2d_adc_crop_chain.AddFile(roidb[i]['image'])
+        image2d_adc_crop_chain = roidb[i]['chain_adc']
         image2d_adc_crop_chain.GetEntry(roidb[i]['id'])
         entry_image2dadc_crop_data = image2d_adc_crop_chain.image2d_adc_branch
         image2dadc_crop_array = entry_image2dadc_crop_data.as_vector()
         im_2d = larcv.as_ndarray(image2dadc_crop_array[roidb[i]['plane']])
         im = np.zeros ((roidb[i]['height'],roidb[i]['width'],3))
 
-
+        
         for dim1 in range(len(im_2d)):
             for dim2 in range(len(im_2d[0])):
                 im[dim1][dim2][0] = im_2d[dim1][dim2]
                 im[dim1][dim2][1] = im_2d[dim1][dim2]
                 im[dim1][dim2][2] = im_2d[dim1][dim2]
-        if cfg.TRAIN.MAKE_IMAGES:
-            boxes = np.array([[50,50,60,60,.99],[1,1,5,5,.99]])
-
-            im_numpy = im
-            # im_numpy = np.swapaxes(im_numpy,2,1)
-            # im_numpy = np.swapaxes(im_numpy,2,0)
-            im_numpy[im_numpy>0] = 100
-            im_numpy[im_numpy<=0] =0
-            vis_utils.vis_one_image(
-                im_numpy,
-                'GoodImage'+str(i),
-                'hmmm/',
-                boxes,
-                None,
-                None,
-                dataset=datasets.get_particle_dataset(),
-                box_alpha=0.3,
-                show_class=True,
-                thresh=0.7,
-                kp_thresh=2,
-                plain_img=True
-            )
+        # if cfg.TRAIN.MAKE_IMAGES:
+        #     boxes = np.array([[50,50,60,60,.99],[1,1,5,5,.99]])
+        #
+        #     im_numpy = im
+        #     # im_numpy = np.swapaxes(im_numpy,2,1)
+        #     # im_numpy = np.swapaxes(im_numpy,2,0)
+        #     im_numpy[im_numpy>0] = 100
+        #     im_numpy[im_numpy<=0] =0
+        #     vis_utils.vis_one_image(
+        #         im_numpy,
+        #         'GoodImage'+str(i),
+        #         'hmmm/',
+        #         boxes,
+        #         None,
+        #         None,
+        #         dataset=datasets.get_particle_dataset(),
+        #         box_alpha=0.3,
+        #         show_class=True,
+        #         thresh=0.7,
+        #         kp_thresh=2,
+        #         plain_img=True
+        #     )
 
         # #for jpgs:
         # im = cv2.imread(roidb[i]['image'])

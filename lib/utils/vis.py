@@ -107,14 +107,24 @@ def get_class_string(class_index, score, dataset):
 def vis_one_image(
         im, im_name, output_dir, boxes, segms=None, keypoints=None, thresh=0.9,
         kp_thresh=2, dpi=200, box_alpha=0.0, dataset=None, show_class=False,
-        ext='pdf', plain_img=False):
+        ext='pdf', plain_img=False, no_adc=False, show_roi_num=False):
     """Visual debugging of detections."""
+    # print("SHAPE DESIRED:", boxes.shape)
+    print("Length Boxes  :", len(boxes))
+    print("Length Boxes[1]  :", len(boxes[1]))
+
+    # for ll in range(len(boxes)):
+    #     print(boxes[ll])
+
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
     # print("SHAPE: ",im.shape)
     if plain_img:
         #need something there
         boxes = np.array([[50,50,60,60,.99],[1,1,5,5,.99]])
+
+    if no_adc:
+        im.fill(0.0)
 
     if isinstance(boxes, list):
         boxes, segms, keypoints, classes = convert_from_cls_format(
@@ -198,14 +208,32 @@ def vis_one_image(
                         facecolor='g', alpha=0.4, pad=0, edgecolor='none'),
                     color='white')
 
+            if show_roi_num:
+                dist=+10
+                if show_class:
+                    dist=20
+                ax.text(
+                    bbox[0], bbox[1] +dist,
+                    str(i),
+                    fontsize=3,
+                    family='serif',
+                    bbox=dict(
+                        facecolor='g', alpha=0.4, pad=0, edgecolor='none'),
+                    color='white')
+
             # show mask
             # print('About to check the segms')
             if segms is not None and len(segms) > i:
                 # print('Inside Segments')
                 # for k,v in segms[0].items():
-                #     print('Key: ', k)
-                #     print('Value type: ', type(v))
-                #     print()
+                #     print(k)
+                # print("         ",i)
+                # print('             Size: ', segms[i]['size'])
+                # print()
+                # print('             Count ', type(segms[i]['counts']) , segms[i]['counts'])
+                # print()
+                # print('             masks:', type(masks), masks.shape)
+
                 img = np.ones(im.shape)
                 color_mask = color_list[mask_color_id % len(color_list), 0:3]
                 mask_color_id += 1
@@ -229,6 +257,8 @@ def vis_one_image(
 
                     once =False
                 e = masks[:, :, i]
+                # print('             e:', type(e), e.shape, np.sum(e), np.amax(e))
+                # print('             Box Dim:', bbox[2] - bbox[0] , bbox[3] - bbox[1] )
 
                 _, contour, hier = cv2.findContours(
                     e.copy(), cv2.RETR_CCOMP, cv2.CHAIN_APPROX_NONE)
@@ -241,7 +271,7 @@ def vis_one_image(
                     # print()
                     polygon = Polygon(
                         c.reshape((-1, 2)),
-                        fill=True, facecolor=color_mask,
+                        fill=True, facecolor='k',
                         edgecolor='k', linewidth=1.2,
                         alpha=0.5)
                     ax.add_patch(polygon)

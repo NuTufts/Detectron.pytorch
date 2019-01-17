@@ -30,6 +30,7 @@ from utils.logging import setup_logging
 from utils.timer import Timer
 from utils.training_stats import TrainingStats
 
+#to Vis
 import datasets.dummy_datasets as datasets
 import numpy as np
 import utils.vis as vis_utils
@@ -460,33 +461,33 @@ def main():
 
                 # for k,v in input_data.items():
                 #     print('key: ', k)
-                if cfg.TRAIN.MAKE_IMAGES:
-
-                    boxes = np.array([[50,50,60,60,.99],[1,1,5,5,.99]])
-                    print('Len',len(input_data['data']))
-                    print('Type [0]',type(input_data['data'][0]))
-                    print('Shape [0]',input_data['data'][0].shape)
-
-
-                    im_numpy = (input_data['data'][0]).squeeze().numpy()
-                    im_numpy = np.swapaxes(im_numpy,2,1)
-                    im_numpy = np.swapaxes(im_numpy,2,0)
-                    im_numpy[im_numpy>0] = 100
-                    im_numpy[im_numpy<=0] =0
-                    vis_utils.vis_one_image(
-                        im_numpy,
-                        'BadImage',
-                        'hmmm/',
-                        boxes,
-                        None,
-                        None,
-                        dataset=datasets.get_particle_dataset(),
-                        box_alpha=0.3,
-                        show_class=True,
-                        thresh=0.7,
-                        kp_thresh=2,
-                        plain_img=True
-                    )
+                # if cfg.TRAIN.MAKE_IMAGES:
+                #
+                #     boxes = np.array([[50,50,60,60,.99],[1,1,5,5,.99]])
+                #     print('Len',len(input_data['data']))
+                #     print('Type [0]',type(input_data['data'][0]))
+                #     print('Shape [0]',input_data['data'][0].shape)
+                #
+                #
+                #     im_numpy = (input_data['data'][0]).squeeze().numpy()
+                #     im_numpy = np.swapaxes(im_numpy,2,1)
+                #     im_numpy = np.swapaxes(im_numpy,2,0)
+                #     im_numpy[im_numpy>0] = 100
+                #     im_numpy[im_numpy<=0] =0
+                #     vis_utils.vis_one_image(
+                #         im_numpy,
+                #         'BadImage',
+                #         'hmmm/',
+                #         boxes,
+                #         None,
+                #         None,
+                #         dataset=datasets.get_particle_dataset(),
+                #         box_alpha=0.3,
+                #         show_class=True,
+                #         thresh=0.7,
+                #         kp_thresh=2,
+                #         plain_img=True
+                #     )
 
 
                 net_outputs = maskRCNN(**input_data)

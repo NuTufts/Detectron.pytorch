@@ -46,6 +46,12 @@ import utils.fpn as fpn_utils
 import utils.image as image_utils
 import utils.keypoints as keypoint_utils
 
+#to Vis
+import datasets.dummy_datasets as datasets
+import numpy as np
+import utils.vis as vis_utils
+import cv2
+
 
 def im_detect_all(model, im, box_proposals=None, timers=None):
     """Process the outputs of model for testing
@@ -88,6 +94,19 @@ def im_detect_all(model, im, box_proposals=None, timers=None):
         timers['im_detect_mask'].toc()
 
         timers['misc_mask'].tic()
+        # print('Type boxes: ', type(boxes))
+        # print('Shape boxes: ', boxes.shape)
+        # print('boxes: ', boxes)
+        # print('Type cls_boxes: ', type(cls_boxes))
+        # print('len cls_boxes: ', len(cls_boxes))
+        # print('len cls_boxes[1]: ', len(cls_boxes[1]))
+        # print('type cls_boxes[1]: ', type(cls_boxes[1]))
+
+
+        #
+        # for index in range(len(cls_boxes)):
+        #     for index2 in range(len(cls_boxes[index])):
+        #         print(cls_boxes[index][index2])
         cls_segms = segm_results(cls_boxes, masks, boxes, im.shape[0], im.shape[1])
         timers['misc_mask'].toc()
     else:
@@ -398,6 +417,44 @@ def im_detect_mask(model, im_scale, boxes, blob_conv):
     else:
         pred_masks = pred_masks.reshape([-1, 1, M, M])
 
+    # n_rois,_,__,___ = pred_masks.shape
+    # print('pred_masks_shape', pred_masks.shape)
+    # print('Max', np.amax(pred_masks))
+    # for roi in range(n_rois):
+    #     print('Array Copied')
+    #     if np.amax(pred_masks) == 0:
+    #         print('continuing')
+    #         continue
+    #     for i in range(0,2):
+    #         im_numpy2 =np.zeros((448,448,3))
+    #         for x in range(448):
+    #             for y in range(448):
+    #                 im_numpy2[x,y,:] = pred_masks[roi][i][x][y]*250
+    #                 # if pred_masks[roi][i][x][y] != 0 and pred_masks[roi][i][x][y] != 1 :
+    #                 #     print(pred_masks[roi][i][x][y])
+    #
+    #             # im_numpy2[im_numpy2>0.1] = 100
+    #             # im_numpy2[im_numpy2<=0.1] =0
+    #         print('Array Filled')
+    #
+    #         boxes = np.array([[50,50,60,60,.99],[1,1,5,5,.99]])
+    #
+    #
+    #         vis_utils.vis_one_image(
+    #             im_numpy2,
+    #             str(roi)+'_'+str(i)+'deploy_pred_image_ad250_',
+    #             'hmmm/',
+    #             boxes,
+    #             None,
+    #             None,
+    #             dataset=datasets.get_particle_dataset(),
+    #             box_alpha=0.3,
+    #             show_class=True,
+    #             thresh=0.7,
+    #             kp_thresh=2,
+    #             plain_img=True
+    #         )
+    # print('no sir!')
     return pred_masks
 
 
@@ -791,6 +848,7 @@ def box_results_with_nms_and_limit(scores, boxes):  # NOTE: support single-batch
 
 
 def segm_results(cls_boxes, masks, ref_boxes, im_h, im_w):
+    print('Masks Shape: ', masks.shape)
     num_classes = cfg.MODEL.NUM_CLASSES
     cls_segms = [[] for _ in range(num_classes)]
     mask_ind = 0

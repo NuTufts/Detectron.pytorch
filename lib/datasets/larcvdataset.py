@@ -152,7 +152,7 @@ class LArCVDataset(object):
         so we don't need to overwrite it again.
         """
         keys = ['boxes', 'segms', 'gt_classes', 'seg_areas', 'gt_overlaps',
-                'is_crowd', 'box_to_gt_ind_map', 'width', 'height', 'image', 'id', 'plane' , 'flipped']
+                'is_crowd', 'box_to_gt_ind_map', 'width', 'height', 'image', 'id', 'plane' , 'flipped', 'chain_adc', 'chain_cluster']
         if self.keypoints is not None:
             keys += ['gt_keypoints', 'has_visible_keypoints']
         return keys
@@ -191,7 +191,7 @@ class LArCVDataset(object):
         assert image2d_adc_crop_chain.GetEntries() == clustermask_cluster_crop_chain.GetEntries()
 
         self.NUM_IMAGES=clustermask_cluster_crop_chain.GetEntries()
-        # self.NUM_IMAGES=1
+        self.NUM_IMAGES=10
 
         for entry in range(self.NUM_IMAGES):
             dict = {
@@ -204,12 +204,15 @@ class LArCVDataset(object):
                 "date_captured":             'Tomorrow',
                 "license":                  3,
                 "plane":                    2,
+                "chain_adc":                image2d_adc_crop_chain,
+                "chain_cluster":            clustermask_cluster_crop_chain,
                 }
             roidb.append(dict)
         #end of COCO's copy.deepcopy(self.COCO.loadImgs(image_ids)) command equivalent
         for entry in roidb:
             self._prep_roidb_entry(entry)
         print("YOU GOT HERE JOSH!")
+        # print(roidb[0]['chain_adc'])
 
 
         # Include ground-truth object annotations
@@ -222,6 +225,8 @@ class LArCVDataset(object):
                 '_add_gt_from_cache took {:.3f}s'.
                 format(self.debug_timer.toc(average=False))
             )
+            # print(roidb[0]['chain_adc'])
+
         else:
             self.debug_timer.tic()
             print('No Cache Found, Preparing to load from ROOT Files.\n    GOOD LUCK!   \n')
@@ -246,7 +251,10 @@ class LArCVDataset(object):
                     with open(cache_filepath, 'wb') as fp:
                         pickle.dump(roidb, fp, pickle.HIGHEST_PROTOCOL)
                     logger.info('Cache ground truth roidb to %s', cache_filepath)
+
         _add_class_assignments(roidb)
+        # print(roidb[0]['chain_adc'])
+
         return roidb
 
 
@@ -508,13 +516,25 @@ class LArCVDataset(object):
                 # print('Contour # ', n)
                 contour = contour.flatten().tolist()
                 if len(contour) >= 6:
-                    polygon_list.append([float(i) for i in contour])
+                    this_poly =[]
+                    for i in range(len(contour)):
+                        if i%2==0:
+                            #index is even, x coord
+                            this_poly.append(float(i+mask_box_arr[0]))
+                        elif i%2==1:
+                            #index is odd, y coord
+                            this_poly.append(float(i+mask_box_arr[1]))
+                        else:
+                            #index isn't even or oddself.
+                            assert 1==2
+                    polygon_list.append(this_poly)
             # if len(polygon_list) == 0:
             #     #Nothing in this segment don't include
             #     # print('idx inside: ',idx)
             #     # delete_rows.append(idx)
             #     # print('idx inside: ',idx)
             #     continue
+            print(polygon_list)
             obj['segmentation'] = polygon_list
             obj['area'] = np.sum(mask_bin_arr)
             if obj['area'] < cfg.TRAIN.GT_MIN_AREA:
@@ -606,9 +626,9 @@ class LArCVDataset(object):
         for entry, cached_entry in zip(roidb, cached_roidb):
             values = [cached_entry[key] for key in self.valid_cached_keys]
             boxes, segms, gt_classes, seg_areas, gt_overlaps, is_crowd, \
-                box_to_gt_ind_map, width, height, image, id, plane, flipped = values[:13]
+                box_to_gt_ind_map, width, height, image, id, plane, flipped, chain_adc, chain_cluster = values[:15]
             if self.keypoints is not None:
-                gt_keypoints, has_visible_keypoints = values[13:]
+                gt_keypoints, has_visible_keypoints = values[15:]
             # entry['boxes'] = np.append(entry['boxes'], boxes, axis=0)
             # entry['segms'].extend(segms)
             # # To match the original implementation:
@@ -635,6 +655,8 @@ class LArCVDataset(object):
             entry['gt_overlaps'] = scipy.sparse.csr_matrix(gt_overlaps)
             entry['is_crowd'] = is_crowd
             entry['box_to_gt_ind_map'] = box_to_gt_ind_map
+            entry['chain_adc'] = chain_adc
+            entry['chain_cluster'] = chain_cluster
             if self.keypoints is not None:
                 entry['gt_keypoints'] = gt_keypoints
                 entry['has_visible_keypoints'] = has_visible_keypoints

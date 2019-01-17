@@ -12,6 +12,12 @@ from modeling import ResNet
 import nn as mynn
 import utils.net as net_utils
 
+#to Vis
+import datasets.dummy_datasets as datasets
+import numpy as np
+import utils.vis as vis_utils
+import cv2
+
 
 # ---------------------------------------------------------------------------- #
 # Mask R-CNN outputs and losses
@@ -90,24 +96,89 @@ class mask_rcnn_outputs(nn.Module):
 
 def mask_rcnn_losses(masks_pred, masks_int32):
     """Mask R-CNN specific losses."""
+    # print('Taking a loss')
+    # print('Shape of truth:', masks_int32.shape)
+    # print('Shape of pred: ', masks_pred.shape)
+
     n_rois, n_classes, _, _ = masks_pred.size()
     device_id = masks_pred.get_device()
     masks_gt = Variable(torch.from_numpy(masks_int32.astype('float32'))).cuda(device_id)
-    # masks_gt = (masks_gt != 0).float()
+    el1 = float(np.amax(masks_int32))
+    el2 = float(torch.max(masks_gt))
 
-    # for roi in range(n_rois):
-    #     print()
-    #     for i in range(7):
-    #         print('Class:', i)
-    #         for x in range(14):
-    #             for y in range(14):
-    #                 print(masks_gt[roi][i*7+x*14+y].item(), end=" ")
-    #             print()
+    weight = (masks_gt > -1).float()
+    # if el1 != el2:
+        # print (el1,el2)
+
+    #vis code
+    if cfg.TRAIN.MAKE_IMAGES and np.amax(masks_int32) > 0:
+        resolution= cfg.MRCNN.RESOLUTION
+        print('Have Maxes')
+        for roi in range(n_rois):
+            numpy_arr = masks_gt.cpu()[roi].numpy()
+            ind =0
+            for clas in range(7):
+                if weight[roi][resolution*resolution*clas+5].item() ==1:
+                    ind = clas
+            print('Array Copied')
+            if np.amax(numpy_arr) != 1:
+                print('continuing')
+                continue
+            for i in range(ind,ind+1):
+                im_numpy = np.zeros((resolution,resolution,3))
+                im_numpy2 =np.zeros((resolution,resolution,3))
+                for x in range(resolution):
+                    for y in range(resolution):
+                        im_numpy[x,y,:] = masks_gt[roi][i*resolution*resolution+x*resolution+y].item()
+                        im_numpy2[x,y,:] = masks_pred[roi][i][x][y].item()
+
+
+                print('Array Filled')
+
+                boxes = np.array([[50,50,60,60,.99],[1,1,5,5,.99]])
+                # im_numpy = np.swapaxes(im_numpy,2,1)
+                # im_numpy = np.swapaxes(im_numpy,2,0)
+                # im_numpy[im_numpy>0] = 100
+                # im_numpy[im_numpy<=0] =0
+
+                # print('LENGTH:', len(im_numpy),len(im_numpy[0]))
+                if np.amax(im_numpy) !=0:
+                    vis_utils.vis_one_image(
+                        im_numpy,
+                        str(roi)+'_'+str(i)+'gt_image',
+                        'hmmm/',
+                        boxes,
+                        None,
+                        None,
+                        dataset=datasets.get_particle_dataset(),
+                        box_alpha=0.3,
+                        show_class=True,
+                        thresh=0.7,
+                        kp_thresh=2,
+                        plain_img=True
+                    )
+                    vis_utils.vis_one_image(
+                        im_numpy2,
+                        str(roi)+'_'+str(i)+'pred_image',
+                        'hmmm/',
+                        boxes,
+                        None,
+                        None,
+                        dataset=datasets.get_particle_dataset(),
+                        box_alpha=0.3,
+                        show_class=True,
+                        thresh=0.7,
+                        kp_thresh=2,
+                        plain_img=True
+                    )
 
 
 
 
-    weight = (masks_gt > -1).float()  # masks_int32 {1, 0, -1}, -1 means ignore
+
+
+
+      # masks_int32 {1, 0, -1}, -1 means ignore
     total_for_avg = weight.sum()
 
     num_on  = torch.sum(masks_gt>0).item()

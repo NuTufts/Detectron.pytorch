@@ -69,7 +69,7 @@ __C.TRAIN.BG_THRESH_HI = 0.5
 __C.TRAIN.BG_THRESH_LO = 0.0
 
 # Use horizontally-flipped images during training?
-__C.TRAIN.USE_FLIPPED = True
+__C.TRAIN.USE_FLIPPED = False
 
 # Overlap required between a ROI and ground-truth box in order for that ROI to
 # be used as a bounding-box regression training example
@@ -132,7 +132,7 @@ __C.TRAIN.RPN_FG_FRACTION = 0.5
 __C.TRAIN.RPN_BATCH_SIZE_PER_IM = 256
 
 # NMS threshold used on RPN proposals (used during end-to-end training with RPN)
-__C.TRAIN.RPN_NMS_THRESH = 0.7
+__C.TRAIN.RPN_NMS_THRESH = 0.1
 
 # Number of top scoring RPN proposals to keep before applying NMS (per image)
 # When FPN is used, this is *per FPN level* (not total)
@@ -171,7 +171,7 @@ __C.DATA_LOADER = AttrDict()
 # Number of Python threads to use for the data loader (warning: using too many
 # threads can cause GIL-based interference with Python Ops leading to *slower*
 # training; 4 seems to be the sweet spot in our experience)
-__C.DATA_LOADER.NUM_THREADS = 4
+__C.DATA_LOADER.NUM_THREADS = 1
 
 
 # ---------------------------------------------------------------------------- #
