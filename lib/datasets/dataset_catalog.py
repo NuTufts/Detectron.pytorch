@@ -46,6 +46,15 @@ DATASETS = {
         IM_PREFIX:
             'croppedmask_lf_'
     },
+    'particle_physics_valid': {
+        IM_DIR:
+            _DATA_DIR + '/particle_physics_valid/root_files/',
+        # use filtered validation as there is an issue converting contours
+        ANN_FN:
+            _DATA_DIR + '//particle_physics_valid/annotations/instances_train2014.json',
+        IM_PREFIX:
+            'croppedmask_lf_'
+    },
     'cityscapes_fine_instanceonly_seg_train': {
         IM_DIR:
             _DATA_DIR + '/cityscapes/images',

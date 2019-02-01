@@ -188,6 +188,9 @@ class TrainingStats(object):
                 v = stats[k]
                 if isinstance(v, dict):
                     self.tb_log_stats(v, cur_iter)
+                # elif isinstance(v, np.ndarray):
+                #     print('makin histos')
+                #     self.tblogger.add_histogram(k, v, cur_iter)
                 else:
                     self.tblogger.add_scalar(k, v, cur_iter)
 

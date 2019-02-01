@@ -10,7 +10,7 @@ import utils.net as net_utils
 
 
 class fast_rcnn_outputs(nn.Module):
-    def __init__(self, dim_in):
+    def __init__(self, dim_in, validation=False):
         super().__init__()
         self.cls_score = nn.Linear(dim_in, cfg.MODEL.NUM_CLASSES)
         if cfg.MODEL.CLS_AGNOSTIC_BBOX_REG:  # bg and fg
@@ -18,6 +18,7 @@ class fast_rcnn_outputs(nn.Module):
         else:
             self.bbox_pred = nn.Linear(dim_in, 4 * cfg.MODEL.NUM_CLASSES)
 
+        self.validation=validation
         self._init_weights()
 
     def _init_weights(self):
@@ -40,7 +41,7 @@ class fast_rcnn_outputs(nn.Module):
         if x.dim() == 4:
             x = x.squeeze(3).squeeze(2)
         cls_score = self.cls_score(x)
-        if not self.training:
+        if not self.training and not self.validation:
             cls_score = F.softmax(cls_score, dim=1)
         bbox_pred = self.bbox_pred(x)
 
@@ -61,7 +62,23 @@ def fast_rcnn_losses(cls_score, bbox_pred, label_int32, bbox_targets,
 
     # class accuracy
     cls_preds = cls_score.max(dim=1)[1].type_as(rois_label)
-    accuracy_cls = cls_preds.eq(rois_label).float().mean(dim=0)
+    #new weights
+    # for el in range(len(cls_preds)):
+        # print("Pred", cls_preds[el].item())
+        # print("GT: ", rois_label[el].item())
+    #new
+    numerator   = (( rois_label > 0 ).float() * cls_preds.eq(rois_label).float() ).float().sum(dim=0).float()
+    denominator = (rois_label > 0 ).float().sum(dim=0).float()
+    # print("My Accuracy: ", numerator/denominator.item())
+    # print("Numerator: ", numerator.item())
+    # print("Denominator: ", denominator.item())
+
+    accuracy_cls = numerator/denominator
+    # accuracy_cls = cls_preds.eq(rois_label).float().mean(dim=0)
+    # original
+    # accuracy_cls = cls_preds.eq(rois_label).float().mean(dim=0)
+
+
 
     return loss_cls, loss_bbox, accuracy_cls
 

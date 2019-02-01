@@ -36,6 +36,8 @@ class GenerateProposalLabelsOp(nn.Module):
         # coco:
         # json_dataset.add_proposals(roidb, rpn_rois, im_scales, crowd_thresh=0)
         # root:
+        
+
         larcvdataset.add_proposals(roidb, rpn_rois, im_scales, crowd_thresh=0)
 
         # json_dataset.add_proposals(roidb, rpn_rois, im_scales, crowd_thresh=0)

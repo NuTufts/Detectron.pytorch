@@ -30,6 +30,16 @@ import utils.blob as blob_utils
 import utils.boxes as box_utils
 import utils.segms as segm_utils
 
+#larcvdataset original imports
+import os,time
+import ROOT
+from larcv import larcv
+import numpy as np
+from torch.utils.data import Dataset
+#new imports:
+import cv2
+import torchvision
+
 
 def add_mask_rcnn_blobs(blobs, sampled_boxes, roidb, im_scale, batch_idx):
     """Add Mask R-CNN specific blobs to the input blob dictionary."""
@@ -38,27 +48,48 @@ def add_mask_rcnn_blobs(blobs, sampled_boxes, roidb, im_scale, batch_idx):
     M = cfg.MRCNN.RESOLUTION
     polys_gt_inds = np.where((roidb['gt_classes'] > 0) &
                              (roidb['is_crowd'] == 0))[0]
-    polys_gt = [roidb['segms'][i] for i in polys_gt_inds]
-    for i in range(len(polys_gt)):
-        # print("i is:", i)
-        poly = polys_gt[i]
-        if len(poly) ==0:
-            print()
-            print('Cheated, and made my own box')
-            print()
-            poly = [[0.0, 0.0, 0.0, 4.0, 4.0, 4.0, 4.0, 0.0]]
-            polys_gt[i] = poly
-        # for ix in range(len(poly)):
-        #     p=poly[ix]
-        #     print('polygon in poly', type(p))
-        #     if len(p) > 8:
-        #         print(p[:8])
-        #     else:
-        #         print('len(p) less than 8, p is: ', p)
-            # for k, v in roidb.items():
-            #     print('key', k)
-    boxes_from_polys = segm_utils.polys_to_boxes(polys_gt)
-    # boxes_from_polys = [roidb['boxes'][i] for i in polys_gt_inds]
+
+    # input mask instead of polygon
+    clustermask_cluster_crop_chain = roidb['chain_cluster']
+    clustermask_cluster_crop_chain.GetEntry(roidb['id'])
+    entry_clustermaskcluster_crop_data = clustermask_cluster_crop_chain.clustermask_masks_branch
+    clustermaskcluster_crop_array = entry_clustermaskcluster_crop_data.as_vector()
+    cluster_masks = clustermaskcluster_crop_array[roidb['plane']]
+    masks_orig_size = []
+    boxes_from_polys = np.empty((0,4))
+    for i in polys_gt_inds:
+
+        bbox = larcv.as_ndarray_bbox(cluster_masks[int(i)])
+        # print(boxes_from_polys.shape)
+        # print(np.array([bbox[0],bbox[1],bbox[0]+bbox[2],bbox[1]+bbox[3]]).shape)
+        boxes_from_polys = np.append(boxes_from_polys, np.array([[bbox[0],bbox[1],bbox[0]+bbox[2],bbox[1]+bbox[3]]]), 0)
+        # print(i)
+        # print(bbox[0],bbox[1],bbox[0]+bbox[2],bbox[1]+bbox[3])
+        masks_orig_size.append(larcv.as_ndarray_mask(cluster_masks[int(i)]))
+
+
+
+
+    # polys_gt = [roidb['segms'][i] for i in polys_gt_inds]
+    # for i in range(len(polys_gt)):
+    #     # print("i is:", i)
+    #     poly = polys_gt[i]
+    #     if len(poly) ==0:
+    #         print()
+    #         print('Cheated, and made my own box')
+    #         print()
+    #         poly = [[0.0, 0.0, 0.0, 4.0, 4.0, 4.0, 4.0, 0.0]]
+    #         polys_gt[i] = poly
+    # print('Type Boxes: ', type(boxes_from_polys))
+    # print('Shape Boxes: ', boxes_from_polys.shape)
+    # print('Boxes: ', boxes_from_polys)
+    # boxes_from_polys = segm_utils.polys_to_boxes(polys_gt)
+    # print('Type Boxes: ', type(boxes_from_polys))
+    #
+    # print('Shape Boxes: ', boxes_from_polys.shape)
+    # print('Boxes: ', boxes_from_polys)
+
+
     fg_inds = np.where(blobs['labels_int32'] > 0)[0]
     roi_has_mask = blobs['labels_int32'].copy()
     roi_has_mask[roi_has_mask > 0] = 1
@@ -84,14 +115,35 @@ def add_mask_rcnn_blobs(blobs, sampled_boxes, roidb, im_scale, batch_idx):
         # (measured by bbox overlap)
         fg_polys_inds = np.argmax(overlaps_bbfg_bbpolys, axis=1)
 
+        # original = np.array([[1,2,3], [4,5,6], [7,8,9]])
+        # print('original[0][2]', original[0][2])
+        # box_orig = np.array([7,7,9,9])
+        # box_adjust = np.array([2,2,6,6])
+        # resized = resize_mask_to_set_dim(original, box_adjust, box_orig, 10)
+        #
+        #
+        # for y in reversed(range(resized.shape[1])):
+        #     for x in range(resized.shape[0]):
+        #         print(int(resized[x][y]),end=' ')
+        #     print()
+        # print()
+
         # add fg targets
         for i in range(rois_fg.shape[0]):
             fg_polys_ind = fg_polys_inds[i]
-            poly_gt = polys_gt[fg_polys_ind]
+            # poly_gt = polys_gt[fg_polys_ind]
+            mask_gt_orig_size = masks_orig_size[fg_polys_ind]
+            box_gt = boxes_from_polys[fg_polys_ind]
+
+
             roi_fg = rois_fg[i]
             # Rasterize the portion of the polygon mask within the given fg roi
             # to an M x M binary image
-            mask = segm_utils.polys_to_mask_wrt_box(poly_gt, roi_fg, M)
+            # print(fg_polys_ind)
+            # print('roi_fg', roi_fg)
+            # mask = segm_utils.polys_to_mask_wrt_box(poly_gt, roi_fg, M)
+            mask = resize_mask_to_set_dim(mask_gt_orig_size, roi_fg, box_gt, M)
+
             mask = np.array(mask > 0, dtype=np.int32)  # Ensure it's binary
             masks[i, :] = np.reshape(mask, M**2)
     else:  # If there are no fg masks (it does happen)
@@ -172,3 +224,68 @@ def _expand_to_class_specific_mask_targets(masks, mask_class_labels):
             mask_targets[i, start:end] = masks[i, :]
 
     return mask_targets
+
+def resize_mask_to_set_dim(mask_gt_orig_size, roi_fg, box_gt, M):
+    """Take in original binary gt mask at original size in gt bbox
+    Then take roi_fg (the predicted bbox) and crop the gt mask into it
+    Finally output a square matrix pooled or upstampled version to
+    dimensions MxM
+    """
+    #plus one to include the
+    pred_w = int(roi_fg[2]-roi_fg[0] +1)
+    pred_h = int(roi_fg[3]-roi_fg[1] +1)
+    # print("mask_gt_orig_size shape")
+    # print(mask_gt_orig_size.shape)
+    # print("orig bbox dim")
+    # print(box_gt[2]-box_gt[0], box_gt[3]-box_gt[1])
+    # print("pred bbox dim")
+    # print(pred_w, pred_h)
+    # print('Desired Square Dim:')
+    # print(M)
+    mask_cropped = np.zeros((pred_h,pred_w,1), dtype=np.uint8)
+
+    # print()
+    # for y in reversed(range(mask_gt_orig_size.shape[1])):
+    #     for x in range(mask_gt_orig_size.shape[0]):
+    #         print(int(mask_gt_orig_size[x][y]),end=' ')
+    #     print()
+    # for y in reversed(range(mask_cropped.shape[1])):
+    #     for x in range(mask_cropped.shape[0]):
+    #         print(int(mask_cropped[x][y]),end=' ')
+    #     print()
+    #Find x indices to copy
+    if box_gt[0] >= roi_fg[0]:
+        start_copy_x = int(box_gt[0] - roi_fg[0])
+    else:
+        start_copy_x = 0
+    if box_gt[2] >= roi_fg[2]:
+        end_copy_x = pred_w
+    else:
+        end_copy_x = int(box_gt[2] - roi_fg[0] +1)
+
+    #Find y indices to copy
+    if box_gt[1] >= roi_fg[1]:
+        start_copy_y = int(box_gt[1] - roi_fg[1])
+    else:
+        start_copy_y = 0
+    if box_gt[3] >= roi_fg[3]:
+        end_copy_y = pred_h
+    else:
+        end_copy_y = int(box_gt[3] - roi_fg[1] +1)
+
+    for x in range(start_copy_x, end_copy_x):
+        for y in range(start_copy_y, end_copy_y):
+            mask_cropped[y][x][0] = np.uint8(mask_gt_orig_size[ y - int(box_gt[1] - roi_fg[1]) ][ x - int(box_gt[0] - roi_fg[0])])
+    #now we need to figure out how to resize this to a constant MxM
+    transform = torchvision.transforms.Compose([
+        torchvision.transforms.ToPILImage(mode='L'),
+        torchvision.transforms.Resize((M,M), interpolation=2)
+        ])
+
+    pil_image =transform(mask_cropped)
+    mask_resized = np.array(pil_image)
+    # print('Shape', (mask_resized.shape))
+
+
+
+    return mask_resized

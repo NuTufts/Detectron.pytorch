@@ -58,7 +58,7 @@ def add_rpn_blobs(blobs, im_scales, roidb):
                                               cfg.RPN.ASPECT_RATIOS)
         all_anchors = foa.field_of_anchors
 
-    
+
     for im_i, entry in enumerate(roidb):
         scale = im_scales[im_i]
         im_height = np.round(entry['height'] * scale)
@@ -99,7 +99,8 @@ def add_rpn_blobs(blobs, im_scales, roidb):
 
     valid_keys = [
         'has_visible_keypoints', 'boxes', 'segms', 'seg_areas', 'gt_classes',
-        'gt_overlaps', 'is_crowd', 'box_to_gt_ind_map', 'gt_keypoints'
+        'gt_overlaps', 'is_crowd', 'box_to_gt_ind_map', 'gt_keypoints', 'chain_cluster',
+        'id', 'plane'
     ]
     minimal_roidb = [{} for _ in range(len(roidb))]
     for i, e in enumerate(roidb):

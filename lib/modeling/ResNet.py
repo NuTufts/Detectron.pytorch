@@ -44,17 +44,22 @@ class ResNet_convX_body(nn.Module):
         super().__init__()
         self.block_counts = block_counts
         self.convX = len(block_counts) + 1
+        print("convX", self.convX)
         self.num_layers = (sum(block_counts) + 3 * (self.convX == 4)) * 3 + 2
 
         self.res1 = globals()[cfg.RESNETS.STEM_FUNC]()
         dim_in = 64
         dim_bottleneck = cfg.RESNETS.NUM_GROUPS * cfg.RESNETS.WIDTH_PER_GROUP
+
         self.res2, dim_in = add_stage(dim_in, 256, dim_bottleneck, block_counts[0],
                                       dilation=1, stride_init=1)
         self.res3, dim_in = add_stage(dim_in, 512, dim_bottleneck * 2, block_counts[1],
                                       dilation=1, stride_init=2)
         self.res4, dim_in = add_stage(dim_in, 1024, dim_bottleneck * 4, block_counts[2],
                                       dilation=1, stride_init=2)
+
+
+
         if len(block_counts) == 4:
             stride_init = 2 if cfg.RESNETS.RES5_DILATION == 1 else 1
             self.res5, dim_in = add_stage(dim_in, 2048, dim_bottleneck * 8, block_counts[3],
@@ -105,18 +110,23 @@ class ResNet_convX_body(nn.Module):
     def train(self, mode=True):
         # Override
         self.training = mode
+        print("mode",mode)
 
         for i in range(cfg.RESNETS.FREEZE_AT + 1, self.convX + 1):
             getattr(self, 'res%d' % i).train(mode)
 
     def forward(self, x):
         for i in range(self.convX):
+            print(i)
+            print(x.shape)
+            print("------------------")
             x = getattr(self, 'res%d' % (i + 1))(x)
+            print(x.shape)
         return x
 
 
 class ResNet_roi_conv5_head(nn.Module):
-    def __init__(self, dim_in, roi_xform_func, spatial_scale):
+    def __init__(self, dim_in, roi_xform_func, spatial_scale, validation=False):
         super().__init__()
         self.roi_xform = roi_xform_func
         self.spatial_scale = spatial_scale
@@ -126,6 +136,7 @@ class ResNet_roi_conv5_head(nn.Module):
         self.res5, self.dim_out = add_stage(dim_in, 2048, dim_bottleneck * 8, 3,
                                             dilation=1, stride_init=stride_init)
         self.avgpool = nn.AvgPool2d(7)
+        self.validation =validation
 
         self._init_modules()
 
@@ -152,7 +163,7 @@ class ResNet_roi_conv5_head(nn.Module):
         res5_feat = self.res5(x)
         # print('res5_feat in RESNET.PY', res5_feat.shape)
         x = self.avgpool(res5_feat)
-        if cfg.MODEL.SHARE_RES5 and self.training:
+        if cfg.MODEL.SHARE_RES5 and ( self.training or self.validation ):
             return x, res5_feat
         else:
             return x
@@ -274,6 +285,9 @@ class bottleneck_transformation(nn.Module):
         self.relu = nn.ReLU(inplace=True)
 
     def forward(self, x):
+        print()
+        print("XSHAPE",x.shape)
+        print()
         residual = x
 
         out = self.conv1(x)

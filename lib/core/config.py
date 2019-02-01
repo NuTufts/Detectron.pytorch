@@ -110,6 +110,8 @@ __C.TRAIN.ASPECT_LO = 0.5
 
 # For printing Out images in the midst of training
 __C.TRAIN.MAKE_IMAGES = False
+# For culling Entrys in ROIDB with GT max IOU less than this
+__C.TRAIN.GT_IOU_THRESH = 0.0
 
 # ---------------------------------------------------------------------------- #
 # RPN training options
@@ -171,7 +173,7 @@ __C.DATA_LOADER = AttrDict()
 # Number of Python threads to use for the data loader (warning: using too many
 # threads can cause GIL-based interference with Python Ops leading to *slower*
 # training; 4 seems to be the sweet spot in our experience)
-__C.DATA_LOADER.NUM_THREADS = 1
+__C.DATA_LOADER.NUM_THREADS = 0
 
 
 # ---------------------------------------------------------------------------- #

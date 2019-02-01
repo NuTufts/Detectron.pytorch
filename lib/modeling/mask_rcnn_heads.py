@@ -113,16 +113,15 @@ def mask_rcnn_losses(masks_pred, masks_int32):
     #vis code
     if cfg.TRAIN.MAKE_IMAGES and np.amax(masks_int32) > 0:
         resolution= cfg.MRCNN.RESOLUTION
-        print('Have Maxes')
         for roi in range(n_rois):
             numpy_arr = masks_gt.cpu()[roi].numpy()
             ind =0
             for clas in range(7):
                 if weight[roi][resolution*resolution*clas+5].item() ==1:
                     ind = clas
-            print('Array Copied')
+            # print('Array Copied')
             if np.amax(numpy_arr) != 1:
-                print('continuing')
+                # print('continuing')
                 continue
             for i in range(ind,ind+1):
                 im_numpy = np.zeros((resolution,resolution,3))
@@ -133,7 +132,7 @@ def mask_rcnn_losses(masks_pred, masks_int32):
                         im_numpy2[x,y,:] = masks_pred[roi][i][x][y].item()
 
 
-                print('Array Filled')
+                # print('Array Filled')
 
                 boxes = np.array([[50,50,60,60,.99],[1,1,5,5,.99]])
                 # im_numpy = np.swapaxes(im_numpy,2,1)

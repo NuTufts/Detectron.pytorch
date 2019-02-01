@@ -77,12 +77,14 @@ def im_detect_all(model, im, box_proposals=None, timers=None):
             model, im, cfg.TEST.SCALE, cfg.TEST.MAX_SIZE, box_proposals)
     timers['im_detect_bbox'].toc()
 
+
     # score and boxes are from the whole image after score thresholding and nms
     # (they are not separated by class) (numpy.ndarray)
     # cls_boxes boxes and scores are separated by class and in the format used
     # for evaluating results
     timers['misc_bbox'].tic()
     scores, boxes, cls_boxes = box_results_with_nms_and_limit(scores, boxes)
+
     timers['misc_bbox'].toc()
 
     if cfg.MODEL.MASK_ON and boxes.shape[0] > 0:
@@ -168,10 +170,25 @@ def im_detect_bbox(model, im, target_scale, target_max_size, boxes=None):
         inputs['data'] = [torch.from_numpy(inputs['data'])]
         inputs['im_info'] = [torch.from_numpy(inputs['im_info'])]
 
-    return_dict = model(**inputs)
 
+    # torch.set_printoptions(profile="full")
+    # torch.set_printoptions(precision=2)
+    # print('start')
+    # print(inputs['data'][0][0,0,0:510,25:30])
+    # print('stop')
+
+    # print()
+    # print("Before Return Dict")
+    # print('------------------')
+    # print()
+    return_dict = model(**inputs)
+    # print()
+    # print('------------------')
+    # print("After Return Dict")
+    # print()
     if cfg.MODEL.FASTER_RCNN:
         rois = return_dict['rois'].data.cpu().numpy()
+
         # unscale back to raw image space
         boxes = rois[:, 1:5] / im_scale
 
@@ -818,8 +835,26 @@ def box_results_with_nms_and_limit(scores, boxes):  # NOTE: support single-batch
                 method=cfg.TEST.SOFT_NMS.METHOD
             )
         else:
+            # print()
+            # print(j)
+            # print("About to use TEST.NMS")
+            # print('Num Proposals First', (dets_j.shape))
             keep = box_utils.nms(dets_j, cfg.TEST.NMS)
+
+
+
             nms_dets = dets_j[keep, :]
+            # print()
+            # print('Num Proposals After', (nms_dets.shape))
+            # print()
+            # print('dets_j type', type(dets_j))
+            # print('dets_j shape', (dets_j.shape))
+            # print(dets_j)
+            # print()
+            # print('nms_dets type', type(nms_dets))
+            # print('nms_dets shape', (nms_dets.shape))
+            # print(nms_dets)
+
         # Refine the post-NMS boxes using bounding-box voting
         if cfg.TEST.BBOX_VOTE.ENABLED:
             nms_dets = box_utils.box_voting(
@@ -848,7 +883,6 @@ def box_results_with_nms_and_limit(scores, boxes):  # NOTE: support single-batch
 
 
 def segm_results(cls_boxes, masks, ref_boxes, im_h, im_w):
-    print('Masks Shape: ', masks.shape)
     num_classes = cfg.MODEL.NUM_CLASSES
     cls_segms = [[] for _ in range(num_classes)]
     mask_ind = 0

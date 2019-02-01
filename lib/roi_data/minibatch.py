@@ -49,12 +49,17 @@ def get_minibatch(roidb):
     blobs['data'] = im_blob
     if cfg.RPN.RPN_ON:
         # RPN-only or end-to-end Faster/Mask R-CNN
+
         valid = roi_data.rpn.add_rpn_blobs(blobs, im_scales, roidb)
+
+
     elif cfg.RETINANET.RETINANET_ON:
         raise NotImplementedError
     else:
         # Fast R-CNN like models trained on precomputed proposals
         valid = roi_data.fast_rcnn.add_fast_rcnn_blobs(blobs, im_scales, roidb)
+
+
     return blobs, valid
 
 
@@ -68,26 +73,32 @@ def _get_image_blob(roidb):
         0, high=len(cfg.TRAIN.SCALES), size=num_images)
     processed_ims = []
     im_scales = []
-
-    # image2d_adc_crop_chain = ROOT.TChain("image2d_adc_tree")
-    # image2d_adc_crop_chain.AddFile(roidb[i]['image'])
+    if cfg.DATA_LOADER.NUM_THREADS > 0:
+        # print("Starting Load of Images")
+        # print("Length ROIDB:", num_images)
+        image2d_adc_crop_chain = ROOT.TChain("image2d_adc_tree")
+        image2d_adc_crop_chain.AddFile(roidb[0]['image'])
     # for k,v in roidb[0].items():
     #     print('key', k)
     for i in range(num_images):
         #for root files:
-        image2d_adc_crop_chain = roidb[i]['chain_adc']
+        if cfg.DATA_LOADER.NUM_THREADS == 0:
+            image2d_adc_crop_chain = roidb[i]['chain_adc']
+
         image2d_adc_crop_chain.GetEntry(roidb[i]['id'])
         entry_image2dadc_crop_data = image2d_adc_crop_chain.image2d_adc_branch
         image2dadc_crop_array = entry_image2dadc_crop_data.as_vector()
         im_2d = larcv.as_ndarray(image2dadc_crop_array[roidb[i]['plane']])
         im = np.zeros ((roidb[i]['height'],roidb[i]['width'],3))
 
-        
+
         for dim1 in range(len(im_2d)):
             for dim2 in range(len(im_2d[0])):
-                im[dim1][dim2][0] = im_2d[dim1][dim2]
-                im[dim1][dim2][1] = im_2d[dim1][dim2]
-                im[dim1][dim2][2] = im_2d[dim1][dim2]
+                im[dim1][dim2][:] = im_2d[dim1][dim2]
+        # np.set_printoptions(threshold=np.inf, precision=0, suppress=True)
+        # print('start')
+        # print(im[0:100,0:100,0])
+        # print('stop')
         # if cfg.TRAIN.MAKE_IMAGES:
         #     boxes = np.array([[50,50,60,60,.99],[1,1,5,5,.99]])
         #
@@ -131,6 +142,8 @@ def _get_image_blob(roidb):
             im, cfg.PIXEL_MEANS, [target_size], cfg.TRAIN.MAX_SIZE)
         im_scales.append(im_scale[0])
         processed_ims.append(im[0])
+        # print("Ending Load of Images")
+
 
     # Create a blob to hold the input images [n, c, h, w]
     blob = blob_utils.im_list_to_blob(processed_ims)

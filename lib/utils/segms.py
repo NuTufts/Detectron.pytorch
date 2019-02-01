@@ -113,7 +113,17 @@ def polys_to_mask_wrt_box(polygons, box, M):
     polygons_norm.append(p)
   # print(type(polygons_norm))
   rle = mask_util.frPyObjects(polygons_norm, M, M)
+  # print('rle type:', type(rle))
+  # print('rle len:', len(rle))
+  #
+  # print('rle[0] type:', type(rle[0]))
+  #
+  # for k,v in rle[0].items():
+  #     print('key:', k)
+  #     print("               ",v)
   mask = np.array(mask_util.decode(rle), dtype=np.float32)
+
+
   # Flatten in case polygons was a list
   mask = np.sum(mask, axis=2)
   mask = np.array(mask > 0, dtype=np.float32)

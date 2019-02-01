@@ -163,7 +163,7 @@ def main():
         cfg.TRAIN.DATASETS = ('keypoints_coco_2017_train',)
         cfg.MODEL.NUM_CLASSES = 2
     elif args.dataset == "particle":
-        cfg.TRAIN.DATASETS = ('particle_physics_train')
+        cfg.TRAIN.DATASETS = ('particle_physics_valid')
         cfg.MODEL.NUM_CLASSES = 7
         # 0=Muon (cosmic), 1=Neutron, 2=Proton, 3=Electron, 4=neutrino, 5=Other
     else:
@@ -263,7 +263,7 @@ def main():
     dataiterator = iter(dataloader)
 
     ### Model ###
-    maskRCNN = Generalized_RCNN()
+    maskRCNN = Generalized_RCNN(validation=True)
 
     if cfg.CUDA:
         maskRCNN.cuda()
@@ -367,7 +367,7 @@ def main():
             tblogger = SummaryWriter(output_dir)
 
     ### Training Loop ###
-    maskRCNN.train()
+    maskRCNN.eval()
 
     CHECKPOINT_PERIOD = int(cfg.TRAIN.SNAPSHOT_ITERS / cfg.NUM_GPUS)
 
@@ -432,75 +432,6 @@ def main():
                         input_data[key] = list(map(Variable, input_data[key]))
 
 
-                # for k,v in input_data.items():
-                #     print("Key: ", k)
-                #     print(type(v), " with length: ", len(v))
-                #     for el in v[:]:
-                #         print("     type el:",type(el), " with length", len(el) )
-                #         if isinstance(el, (list,)):
-                #             print("          Is list:")
-                            # for el2 in el[:]:
-                            #     print("          List Element Type, Shape: ", type(el2), " ", el2.shape )
-                #                 if isinstance(el2, (np.ndarray,)):
-                #                     print("              Type in Array0: ",type(el2[0]))
-                #                     print("              Type in Array1: ",type(el2[1]))
-                #                     print("              Type in Array2: ",type(el2[2]))
-                #
-                #                     print("              Sum of Array: ", np.sum(el2))
-                #         elif isinstance(el, (torch.Tensor,)):
-                #             print("          Is tensor")
-                #             print("          Dimensions: ", el.size() )
-                #             if len(k) ==7:
-                #                 print("             ", el)
-                #             for el2 in el[:]:
-                #                 print("          Tensor Element Type, Len: ", type(el2), " ", len(el2) )
-
-                #     print("")
-                # print("EoD")
-
-
-                # for k,v in input_data.items():
-                #     print('key: ', k)
-                # if cfg.TRAIN.MAKE_IMAGES:
-                #
-                #     boxes = np.array([[50,50,60,60,.99],[1,1,5,5,.99]])
-                #     print('Len',len(input_data['data']))
-                #     print('Type [0]',type(input_data['data'][0]))
-                #     print('Shape [0]',input_data['data'][0].shape)
-                #
-                #
-                #     im_numpy = (input_data['data'][0]).squeeze().numpy()
-                #     im_numpy = np.swapaxes(im_numpy,2,1)
-                #     im_numpy = np.swapaxes(im_numpy,2,0)
-                #     im_numpy[im_numpy>0] = 100
-                #     im_numpy[im_numpy<=0] =0
-                #     vis_utils.vis_one_image(
-                #         im_numpy,
-                #         'BadImage',
-                #         'hmmm/',
-                #         boxes,
-                #         None,
-                #         None,
-                #         dataset=datasets.get_particle_dataset(),
-                #         box_alpha=0.3,
-                #         show_class=True,
-                #         thresh=0.7,
-                #         kp_thresh=2,
-                #         plain_img=True
-                #     )
-
-                # torch.set_printoptions(profile="full")
-                # torch.set_printoptions(precision=2)
-                # print('start')
-                # print(input_data['data'][0][0,0,0:510,25:30])
-                # print('stop')
-                # for k,v in input_data.items():
-                #     print("Key:", k)
-                #     print("Type:", type(v))
-                #     if k=='data':
-                #         print(v[0].shape)
-                # print("IM INFO")
-                # print(input_data['im_info'][0][0].data.cpu().numpy())
                 net_outputs = maskRCNN(**input_data)
                 print()
                 print()
@@ -511,23 +442,25 @@ def main():
                 print()
                 training_stats.UpdateIterStats(net_outputs, inner_iter)
                 loss = net_outputs['total_loss']
-                loss.backward()
+
+                # No Backward pass, we're doing validation
+                # loss.backward()
             optimizer.step()
             training_stats.IterToc()
 
             training_stats.LogIterStats(step, lr)
 
-            if (step+1) % CHECKPOINT_PERIOD == 0:
-                save_ckpt(output_dir, args, step, train_size, maskRCNN, optimizer)
+            # if (step+1) % CHECKPOINT_PERIOD == 0:
+            #     save_ckpt(output_dir, args, step, train_size, maskRCNN, optimizer)
 
         # ---- Training ends ----
         # Save last checkpoint
-        save_ckpt(output_dir, args, step, train_size, maskRCNN, optimizer)
+        # save_ckpt(output_dir, args, step, train_size, maskRCNN, optimizer)
 
     except (RuntimeError, KeyboardInterrupt):
         del dataiterator
         logger.info('Save ckpt on exception ...')
-        save_ckpt(output_dir, args, step, train_size, maskRCNN, optimizer)
+        # save_ckpt(output_dir, args, step, train_size, maskRCNN, optimizer)
         logger.info('Save ckpt done.')
         stack_trace = traceback.format_exc()
         print(stack_trace)

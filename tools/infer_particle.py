@@ -110,8 +110,8 @@ def main():
     elif args.dataset == "particle":
         dataset = datasets.get_particle_dataset()
         cfg.TRAIN.DATASETS = ('particle_physics_train')
-        cfg.MODEL.NUM_CLASSES = 6
-        # 0=Muon (cosmic), 1=Neutron, 2=Proton, 3=Electron, 4=neutrino, 5=Other
+        cfg.MODEL.NUM_CLASSES = 7
+        # 0=Background, 1=Muon (cosmic), 2=Neutron, 3=Proton, 4=Electron, 5=neutrino, 6=Other
     else:
         raise ValueError('Unexpected dataset name: {}'.format(args.dataset))
 
@@ -154,7 +154,7 @@ def main():
         file_list = args.images
 
     #collect files
-    image2d_adc_crop_chain = ROOT.TChain("image2d_adc_tree")
+    image2d_adc_crop_chain = ROOT.TChain("image2d_wire_tree")
     for file in file_list: image2d_adc_crop_chain.AddFile(file)
 
 
@@ -163,30 +163,34 @@ def main():
         os.makedirs(args.output_dir)
 
 
-    for i in xrange(1):
+    for i in xrange(5):
         print('img', i)
         image2d_adc_crop_chain.GetEntry(i)
-        entry_image2dadc_crop_data = image2d_adc_crop_chain.image2d_adc_branch
+        entry_image2dadc_crop_data = image2d_adc_crop_chain.image2d_wire_branch
         image2dadc_crop_array = entry_image2dadc_crop_data.as_vector()
         im_2d = larcv.as_ndarray(image2dadc_crop_array[2])
         height, width = im_2d.shape
-        im = np.zeros ((height,width,3), np.int8)
+        im = np.zeros ((height,width,3))
+        im_visualize = np.zeros ((height,width,3), 'float32')
         # print('height: ',roidb[i]['height'] , "     dim1: ",len(im_2d))
         # print('width: ',roidb[i]['width'] , "     dim2: ",len(im_2d[0]))
 
         for dim1 in range(len(im_2d)):
             for dim2 in range(len(im_2d[0])):
-                if im_2d[dim1][dim2] > 250:
-                    value = 250
-                elif im_2d[dim1][dim2] < 0:
-                    value = 0
+                value = im_2d[dim1][dim2]
+                im[dim1][dim2][:] = value
+
+                if value > 255:
+                    value2 =250
+                elif value < 0:
+                    value2 =0
                 else:
-                    value = im_2d[dim1][dim2]
-                im[dim1][dim2][0] = value
-                im[dim1][dim2][1] = value
-                im[dim1][dim2][2] = value
-
-
+                    value2  = value
+                im_visualize[dim1][dim2][:]= value2
+        # np.set_printoptions(threshold=np.inf, precision=0, suppress=True)
+        # print('start')
+        # print(im[0:100,0:100,0])
+        # print('stop')
         # im = cv2.imread(file_list[i])
         assert im is not None
 
@@ -197,7 +201,7 @@ def main():
         im_name, _ = os.path.splitext(os.path.basename(file_list[0]))
         im_name = im_name+str(i)
         vis_utils.vis_one_image(
-            im[:, :, ::-1],  # BGR -> RGB for visualization
+            im_visualize[:, :, ::-1],  # BGR -> RGB for visualization
             im_name,
             args.output_dir,
             cls_boxes,
@@ -208,7 +212,8 @@ def main():
             show_class=True,
             thresh=0.7,
             kp_thresh=2,
-            no_adc=False
+            no_adc=False,
+            entry=i
         )
 
     if args.merge_pdfs and num_images > 1:

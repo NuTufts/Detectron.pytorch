@@ -107,11 +107,9 @@ def get_class_string(class_index, score, dataset):
 def vis_one_image(
         im, im_name, output_dir, boxes, segms=None, keypoints=None, thresh=0.9,
         kp_thresh=2, dpi=200, box_alpha=0.0, dataset=None, show_class=False,
-        ext='pdf', plain_img=False, no_adc=False, show_roi_num=False):
+        ext='pdf', plain_img=False, no_adc=False, show_roi_num=False, entry=-1):
     """Visual debugging of detections."""
     # print("SHAPE DESIRED:", boxes.shape)
-    print("Length Boxes  :", len(boxes))
-    print("Length Boxes[1]  :", len(boxes[1]))
 
     # for ll in range(len(boxes)):
     #     print(boxes[ll])
@@ -155,7 +153,7 @@ def vis_one_image(
     fig.add_axes(ax)
 
     height, width, __ = im.shape
-    im_grey = np.zeros ((height,width), np.int8)
+    im_grey = np.zeros ((height,width), np.float32)
     for dim1 in range(len(im)):
         for dim2 in range(len(im[0])):
             if im[dim1][dim2][0] > 250:
@@ -183,6 +181,15 @@ def vis_one_image(
 
 
     else:
+        if entry != -1:
+            ax.text(
+                10,500,
+                "Entry #"+str(entry),
+                fontsize=3,
+                family='serif',
+                bbox=dict(
+                    facecolor='g', alpha=0.4, pad=0, edgecolor='none'),
+                color='white')
         for i in sorted_inds:
             bbox = boxes[i, :4]
             score = boxes[i, -1]
@@ -207,6 +214,14 @@ def vis_one_image(
                     bbox=dict(
                         facecolor='g', alpha=0.4, pad=0, edgecolor='none'),
                     color='white')
+                # ax.text(
+                #     bbox[0], bbox[1] +20,
+                #     str(bbox[0])+" , "+ str(bbox[1]) + " , " + str(bbox[2])+" , "+ str(bbox[3]) ,
+                #     fontsize=3,
+                #     family='serif',
+                #     bbox=dict(
+                #         facecolor='g', alpha=0.4, pad=0, edgecolor='none'),
+                #     color='white')
 
             if show_roi_num:
                 dist=+10
@@ -220,6 +235,14 @@ def vis_one_image(
                     bbox=dict(
                         facecolor='g', alpha=0.4, pad=0, edgecolor='none'),
                     color='white')
+                # ax.text(
+                #     bbox[0], bbox[1] +dist+10,
+                #     str(bbox[0])+" , "+ str(bbox[1]) + " , " + str(bbox[2])+" , "+ str(bbox[3]) ,
+                #     fontsize=3,
+                #     family='serif',
+                #     bbox=dict(
+                #         facecolor='g', alpha=0.4, pad=0, edgecolor='none'),
+                #     color='white')
 
             # show mask
             # print('About to check the segms')
@@ -264,15 +287,10 @@ def vis_one_image(
                     e.copy(), cv2.RETR_CCOMP, cv2.CHAIN_APPROX_NONE)
                 # ax.imshow(e.copy())
                 for c in contour:
-                    # print('contours exist')
-                    # contour2 = contour.flatten().tolist()
-                    # for pair in range(len(contour2)/2):
-                    #     print(contour2[pair*2], ',', contour2[pair*2+1])
-                    # print()
                     polygon = Polygon(
                         c.reshape((-1, 2)),
-                        fill=True, facecolor='k',
-                        edgecolor='k', linewidth=1.2,
+                        fill=True, facecolor=color_mask,
+                        edgecolor=color_mask, linewidth=.4,
                         alpha=0.5)
                     ax.add_patch(polygon)
 

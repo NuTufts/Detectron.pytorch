@@ -62,7 +62,7 @@ def compare_state_dict(sa, sb):
 def check_inference(net_func):
     @wraps(net_func)
     def wrapper(self, *args, **kwargs):
-        if not self.training:
+        if not self.training and not self.validation:
             if cfg.PYTORCH_VERSION_LESS_THAN_040:
                 return net_func(self, *args, **kwargs)
             else:
@@ -76,8 +76,11 @@ def check_inference(net_func):
 
 
 class Generalized_RCNN(nn.Module):
-    def __init__(self):
+    def __init__(self, validation=False):
         super().__init__()
+
+        # For Validation
+        self.validation =validation
 
         # For cache
         self.mapping_to_detectron = None
@@ -89,7 +92,7 @@ class Generalized_RCNN(nn.Module):
         # Region Proposal Network
         if cfg.RPN.RPN_ON:
             self.RPN = rpn_heads.generic_rpn_outputs(
-                self.Conv_Body.dim_out, self.Conv_Body.spatial_scale)
+                self.Conv_Body.dim_out, self.Conv_Body.spatial_scale, self.validation)
 
         if cfg.FPN.FPN_ON:
             # Only supports case when RPN and ROI min levels are the same
@@ -108,9 +111,9 @@ class Generalized_RCNN(nn.Module):
         # BBOX Branch
         if not cfg.MODEL.RPN_ONLY:
             self.Box_Head = get_func(cfg.FAST_RCNN.ROI_BOX_HEAD)(
-                self.RPN.dim_out, self.roi_feature_transform, self.Conv_Body.spatial_scale)
+                self.RPN.dim_out, self.roi_feature_transform, self.Conv_Body.spatial_scale, self.validation)
             self.Box_Outs = fast_rcnn_heads.fast_rcnn_outputs(
-                self.Box_Head.dim_out)
+                self.Box_Head.dim_out, validation=self.validation)
 
         # Mask Branch
         if cfg.MODEL.MASK_ON:
@@ -152,7 +155,7 @@ class Generalized_RCNN(nn.Module):
 
     def _forward(self, data, im_info, roidb=None, **rpn_kwargs):
         im_data = data
-        if self.training:
+        if self.training or self.validation:
             roidb = list(map(lambda x: blob_utils.deserialize(x)[0], roidb))
 
         device_id = im_data.get_device()
@@ -160,16 +163,14 @@ class Generalized_RCNN(nn.Module):
         return_dict = {}  # A dict to collect return variables
 
 
-
         blob_conv = self.Conv_Body(im_data)
+
+
         rpn_ret = self.RPN(blob_conv, im_info, roidb)
-        
 
 
 
-
-
-        if self.training:
+        if self.training or self.validation:
             # can be used to infer fg/bg ratio
             return_dict['rois_label'] = rpn_ret['labels_int32']
 
@@ -178,11 +179,12 @@ class Generalized_RCNN(nn.Module):
             # extra blobs that are used for RPN proposals, but not for RoI heads.
             blob_conv = blob_conv[-self.num_roi_levels:]
 
-        if not self.training:
+        if not self.training and not self.validation:
             return_dict['blob_conv'] = blob_conv
 
         if not cfg.MODEL.RPN_ONLY:
-            if cfg.MODEL.SHARE_RES5 and self.training:
+            if cfg.MODEL.SHARE_RES5 and (self.training or self.validation):
+
                 box_feat, res5_feat = self.Box_Head(blob_conv, rpn_ret)
             else:
                 box_feat = self.Box_Head(blob_conv, rpn_ret)
@@ -191,7 +193,8 @@ class Generalized_RCNN(nn.Module):
             # TODO: complete the returns for RPN only situation
             pass
 
-        if self.training:
+
+        if self.training or self.validation:
             return_dict['losses'] = {}
             return_dict['metrics'] = {}
             # rpn loss
@@ -215,6 +218,7 @@ class Generalized_RCNN(nn.Module):
             return_dict['losses']['loss_cls'] = loss_cls
             return_dict['losses']['loss_bbox'] = loss_bbox
             return_dict['metrics']['accuracy_cls'] = accuracy_cls
+            # return_dict['metrics']['TESTHIST'] = np.random.normal(size=10)
             if cfg.MODEL.MASK_ON:
                 if getattr(self.Mask_Head, 'SHARE_RES5', False):
                     # print('First I am Here!')
@@ -229,8 +233,7 @@ class Generalized_RCNN(nn.Module):
 
                 # print(rpn_ret['mask_rois'])
                 loss_mask = mask_rcnn_heads.mask_rcnn_losses(mask_pred, rpn_ret['masks_int32'])
-
-                if cfg.TRAIN.MAKE_IMAGES and self.training:
+                if cfg.TRAIN.MAKE_IMAGES and (self.training or self.validation):
 
                     boxes_2 = np.empty((len(rpn_ret['mask_rois']),4))
                     boxes = [[],[],[],[],[],[],[]]
@@ -242,9 +245,11 @@ class Generalized_RCNN(nn.Module):
                                 np.empty((0,5)),
                                 np.empty((0,5))
                                 ]
-                    print(type(boxes))
+                    # print(type(boxes))
+                    print(len(rpn_ret['mask_rois']))
                     for box in range(len(rpn_ret['mask_rois'])):
-
+                        if box%10==0:
+                            print(box)
                         one_box=[rpn_ret['mask_rois'][box][1]]
                         one_box.append(rpn_ret['mask_rois'][box][2])
                         one_box.append(rpn_ret['mask_rois'][box][3])
@@ -277,9 +282,9 @@ class Generalized_RCNN(nn.Module):
                     # print('len cls_boxes[1]: ', len(boxes_3[1]))
                     # print('type cls_boxes[1]: ', type(boxes_3[1]))
 
-                    for index in range(len(boxes_3)):
-                        for index2 in range(len(boxes_3[index])):
-                            print(boxes_3[index][index2])
+                    # for index in range(len(boxes_3)):
+                    #     for index2 in range(len(boxes_3[index])):
+                    #         print(boxes_3[index][index2])
                     cls_segms = segm_results(boxes_3, mask_pred, boxes_2, 512, 832)
 
                     print('How many boxes: ', len(boxes))

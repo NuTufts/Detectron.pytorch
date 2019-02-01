@@ -39,6 +39,8 @@ import numpy as np
 from torch.utils.data import Dataset
 #new imports:
 import cv2
+import matplotlib.pyplot as pl
+
 
 logger = logging.getLogger(__name__)
 
@@ -96,6 +98,11 @@ class LArCVDataset(object):
         self.num_classes = len(self.classes)
         self.plane =2
         self.keypoints = None
+        if self.name == 'particle_physics_valid':
+            print("Validation Set")
+            self.validation = True
+        else:
+            self.validation =False
         # print(category_ids)
         # print(categories)
         # print(self.classes)
@@ -152,7 +159,9 @@ class LArCVDataset(object):
         so we don't need to overwrite it again.
         """
         keys = ['boxes', 'segms', 'gt_classes', 'seg_areas', 'gt_overlaps',
-                'is_crowd', 'box_to_gt_ind_map', 'width', 'height', 'image', 'id', 'plane' , 'flipped', 'chain_adc', 'chain_cluster']
+                'is_crowd', 'box_to_gt_ind_map', 'width', 'height', 'image',
+                'id', 'plane' , 'flipped', 'chain_adc', 'chain_cluster',
+                'max_iou']
         if self.keypoints is not None:
             keys += ['gt_keypoints', 'has_visible_keypoints']
         return keys
@@ -179,6 +188,8 @@ class LArCVDataset(object):
         roidb = []
         # _files = ['/home/jmills/workdir/mask-rcnn.pytorch/data/particle_physics_train/root_files/croppedmask_lf_001.root']
         _files = ['/media/disk1/jmills/crop_mask_train/crop_train1.root']
+        if self.validation == True:
+            _files = ['/media/disk1/jmills/crop_mask_valid/crop_valid.root']
         # _f = ROOT.TFile(_files[0])
         image2d_adc_crop_chain = ROOT.TChain("image2d_adc_tree")
         clustermask_cluster_crop_chain = ROOT.TChain("clustermask_masks_tree")
@@ -191,9 +202,11 @@ class LArCVDataset(object):
         assert image2d_adc_crop_chain.GetEntries() == clustermask_cluster_crop_chain.GetEntries()
 
         self.NUM_IMAGES=clustermask_cluster_crop_chain.GetEntries()
-        self.NUM_IMAGES=10
+        self.NUM_IMAGES=100
+        self.SPECIFIC_IMAGE_START=0
 
-        for entry in range(self.NUM_IMAGES):
+
+        for entry in range(self.SPECIFIC_IMAGE_START,self.SPECIFIC_IMAGE_START+self.NUM_IMAGES):
             dict = {
                 "height":                   512,
                 "width":                    832,
@@ -231,14 +244,65 @@ class LArCVDataset(object):
             self.debug_timer.tic()
             print('No Cache Found, Preparing to load from ROOT Files.\n    GOOD LUCK!   \n')
             print(len(roidb), ' Entries to Load in.')
-            update_every_percent = 10
-            print_cond = len(roidb)/update_every_percent
+
+            update_every_percent = 5
+            print_cond = float(len(roidb))*float(update_every_percent)/100.0
+            print("Updating Every ", update_every_percent, "%")
+            if int(print_cond) ==0:
+                print_cond =1
+            print("Updating Every ", int(print_cond), " Entries")
             count =0
+            max_iou = np.zeros((0), np.float)
+            all_ious = np.zeros((0), np.float)
             for entry in roidb:
-                if count%1000==0:
+                count = count+1
+                if count%int(print_cond)==0:
                     print(count, " Complete took time: ", self.debug_timer.toc(average=False))
                 self._add_gt_annotations(entry, clustermask_cluster_crop_chain)
-                count = count+1
+                # if (len(entry['boxes']) < 2):
+                #     max_iou = np.append(max_iou, 0.0)
+                #     continue
+                # entry_ious = get_ious(entry['boxes'])
+                # # print('BOXES')
+                # # print("LENGTH BOXES", len(entry['boxes']))
+                # # print(entry['boxes'])
+                # all_ious = np.append(all_ious, entry_ious)
+                # # print()
+                # # print('ENTRY_IOUS')
+                # # print(entry_ious)
+                # # print()
+                # max_iou = np.append(max_iou, entry_ious.max())
+                #
+                # # print('MAX IOU')
+                # # print(max(get_ious(entry['boxes'])))
+
+            # fig = pl.hist(max_iou, density=False, bins=20)
+            # pl.title('Max IoU Per Image')
+            # pl.xlabel("IoU Value")
+            # pl.ylabel("Count")
+            # pl.savefig("IoU_max.png")
+            # pl.clf()
+            #
+            # fig2 = pl.hist(all_ious,density=False, bins=20)
+            # pl.title('IoU Distribution')
+            # pl.xlabel("IoU Value")
+            # pl.ylabel("Count")
+            # pl.savefig("IoU_dist.png")
+            # pl.clf()
+            #
+            # fig3 = pl.hist(max_iou, density=False, range=(0.0001,1.01), bins=20)
+            # pl.title('Max IoU Per Image, Zeros Ignored')
+            # pl.xlabel("IoU Value")
+            # pl.ylabel("Count")
+            # pl.savefig("IoU_max_no_zero.png")
+            # pl.clf()
+            #
+            # fig4 = pl.hist(all_ious,density=False, range=(0.0001,1.01), bins=20)
+            # pl.title('IoU Distribution, Zeroes Ignored')
+            # pl.xlabel("IoU Value")
+            # pl.ylabel("Count")
+            # pl.savefig("IoU_dist_no_zero.png")
+            # pl.close()
 
             logger.debug(
             '_add_gt_annotations took {:.3f}s'.
@@ -253,200 +317,19 @@ class LArCVDataset(object):
                     logger.info('Cache ground truth roidb to %s', cache_filepath)
 
         _add_class_assignments(roidb)
-        # print(roidb[0]['chain_adc'])
 
+        t0 = time.time()
+        thresh = cfg.TRAIN.GT_IOU_THRESH
+        orig_length = len(roidb)
+        if thresh > 0.0:
+            roidb = _cull_roidb_iou(roidb, thresh)
+        t1 = time.time()
+        total = t1-t0
+        print("Original Roidb lenth: ", orig_length)
+        print("New      Roidb lenth: ", len(roidb))
+        print("Time to Cull: ", total)
         return roidb
 
-
-            # ###Here goes nothing!
-            # plane = 2
-            #
-            # #should go to self.NUM_IMAGES in loop not 1
-            #
-            # for entry in range(0,self.NUM_IMAGES):
-            #     # image2d_adc_crop_chain.GetEntry(entry)
-            #     # entry_image2dadc_crop_data = image2d_adc_crop_chain.image2d_adc_branch
-            #     # image2dadc_crop_array = entry_image2dadc_crop_data.as_vector()
-            #
-            #     clustermask_cluster_crop_chain.GetEntry(entry)
-            #     entry_clustermaskcluster_crop_data = clustermask_cluster_crop_chain.clustermask_masks_branch
-            #     clustermaskcluster_crop_array = entry_clustermaskcluster_crop_data.as_vector()
-            #
-            #     ###These are things to be filled for each mask in the image
-            #     box_arr =               np.empty((0, 4), dtype=np.float32)
-            #     gt_class_arr =          np.empty((0), dtype=np.int32)
-            #     segms_list =            []
-            #     seg_areas_arr =         np.empty((0), dtype=np.float32)
-            #
-            #     #These ones I don't really know yet:
-            #     # max_overlap_list =          []
-            #     gt_overlaps_arr_sparse =    scipy.sparse.csr_matrix(np.empty((0, self.num_classes), dtype=np.float32))
-            #     num_valid_masks=0
-            #     # for idx, mask in enumerate(clustermaskcluster_crop_array[plane]):
-            #     #
-            #     #
-            #     #     mask_bin_arr = larcv.as_ndarray_mask(mask)
-            #     #     area = np.sum(mask_bin_arr)
-            #     #     if area < cfg.TRAIN.GT_MIN_AREA:
-            #     #         continue
-            #     #
-            #     #     # Convert form (x1, y1, w, h) to (x1, y1, x2, y2)
-            #     #     mask_box_arr = larcv.as_ndarray_bbox(mask)
-            #     #
-            #     #     # Require non-zero seg area and more than 1x1 box size
-            #     #     if area > 0 and mask_box_arr[0]+mask_box_arr[2] > mask_box_arr[0] and mask_box_arr[1]+mask_box_arr[3] > mask_box_arr[1]:
-            #     #         num_valid_masks = num_valid_masks+1
-            #
-            #
-            #
-            #     gt_overlaps =               np.zeros((len(clustermaskcluster_crop_array[plane]), self.num_classes),dtype=gt_overlaps_arr_sparse.dtype)
-            #     if entry ==20:
-            #         print('NumValidMasks: ',num_valid_masks)
-            #         print('gt_overlaps: ',gt_overlaps)
-            #
-            #     is_crowd_arr =              np.empty((0), dtype=np.bool)
-            #     # max_classes_list =          []
-            #     box_to_gt_ind_map_arr =     np.empty((0), dtype=np.int32)
-            #
-            #
-            #
-            #
-            #     delete_rows=[]
-            #     print('LENGTH: ',len(clustermaskcluster_crop_array[plane]))
-            #     for idx, mask in enumerate(clustermaskcluster_crop_array[plane]):
-            #         print('idx: ',idx)
-            #
-            #         #lets do the segm in polygon format using cv2
-            #         #https://github.com/facebookresearch/Detectron/issues/100#issuecomment-362882830
-            #
-            #         mask_bin_arr = larcv.as_ndarray_mask(mask)
-            #         new_mask = mask_bin_arr.astype(np.uint8).copy()
-            #         # opencv 3.2
-            #         mask_new, contours, hierarchy = cv2.findContours((new_mask).astype(np.uint8), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-            #         # n=0
-            #         polygon_list = []
-            #         for contour in contours:
-            #             # n=n+1
-            #             # print('Contour # ', n)
-            #             contour = contour.flatten().tolist()
-            #             if len(contour) > 4:
-            #                 polygon_list.append([float(i) for i in contour])
-            #
-            #             # Not sure what this was meant for -j would double contours > 4
-            #             # if len(contour) > 4:
-            #             #     segms_list.append(contour)
-            #
-            #         if len(polygon_list) == 0:
-            #             #Nothing in this segment don't include
-            #             print('idx inside: ',idx)
-            #             delete_rows.append(idx)
-            #             print('idx inside: ',idx)
-            #             continue
-            #
-            #         segms_list.append(polygon_list)
-            #         is_crowd_arr = np.append(is_crowd_arr,False)
-            #         box_to_gt_ind_map_arr = np.append(box_to_gt_ind_map_arr, idx)
-            #
-            #
-            #
-            #         mask_box_arr = larcv.as_ndarray_bbox(mask)
-            #         ##If your array is x1,y1,x2,y2
-            #         # box_arr = np.append(box_arr, [[mask_box_arr[0], mask_box_arr[1], mask_box_arr[2], mask_box_arr[3]]])
-            #         ##if your array is x1,y1,w,h
-            #         box_arr = np.append(box_arr, [[mask_box_arr[0], mask_box_arr[1], mask_box_arr[0]+mask_box_arr[2], mask_box_arr[1]+mask_box_arr[3]]], 0)
-            #         area = np.sum(mask_bin_arr)
-            #
-            #         seg_areas_arr = np.append(seg_areas_arr, area)
-            #         gt_class_arr = np.append(gt_class_arr, int(mask_box_arr[4]))
-            #         if entry==20:
-            #             print(idx)
-            #         if is_crowd_arr[-1]:
-            #             gt_overlaps[idx, :] = -1.0
-            #         else:
-            #             gt_overlaps[idx, int(mask_box_arr[4])] = 1.0
-            #         # max_classes_list.append(mask_box_arr[4])
-            #         # if entry == 20:
-            #         #     print('here we are!')
-            #         #     print(type(gt_overlaps), gt_overlaps)
-            #
-            #
-            #
-            #
-            #     for row in delete_rows:
-            #         gt_overlaps = np.delete(gt_overlaps, row, axis=0)
-            #
-            #
-            #     #handle gt_overlaps
-            #     gt_overlaps_arr_sparse = np.append(gt_overlaps_arr_sparse.toarray(), gt_overlaps, axis=0)
-            #     # if entry ==20:
-            #     #     print('gt_overlaps_arr_sparse ')
-            #     #     print(gt_overlaps_arr_sparse)
-            #     gt_overlaps_arr_sparse = scipy.sparse.csr_matrix(gt_overlaps_arr_sparse)
-            #
-            #     #handle max_overlaps and max_classes
-            #     gt_overlaps = gt_overlaps_arr_sparse.toarray()
-            #     # max overlap with gt over classes (columns)
-            #     max_overlaps_arr = gt_overlaps.max(axis=1)
-            #     # gt class that had the max overlap
-            #     max_classes_arr = gt_overlaps.argmax(axis=1)
-            #     # sanity checks
-            #     # if max overlap is 0, the class must be background (class 0)
-            #     zero_inds = np.where(max_overlaps_arr == 0)[0]
-            #     assert all(max_classes_arr[zero_inds] == 0)
-            #     # if max overlap > 0, the class must be a fg class (not class 0)
-            #     nonzero_inds = np.where(max_overlaps_arr > 0)[0]
-            #     assert all(max_classes_arr[nonzero_inds] != 0)
-            #
-            #     dict = {
-            #         "height":                   512,
-            #         "width":                    832,
-            #         "flipped":                  False,
-            #         "has_visible_keypoints":    False,
-            #         "coco_url":                 'https://bellenot.web.cern.ch/bellenot/images/logo_full-plus-text-hor2.png',
-            #         "flickr_url":               'https://bellenot.web.cern.ch/bellenot/images/logo_full-plus-text-hor2.png',
-            #         "id":                       entry,
-            #         "dataset":                  self,
-            #         "image":                    '/media/disk1/jmills/crop_mask_train/crop_train1.root',
-            #         # "image":                    '/home/jmills/workdir/mask-rcnn.pytorch/data/particle_physics_train/root_files/croppedmask_lf_001.root',
-            #         "boxes":                    box_arr,
-            #         "max_overlaps":             max_overlaps_arr,
-            #         "seg_areas":                seg_areas_arr,
-            #         "gt_overlaps":              gt_overlaps_arr_sparse,
-            #         "is_crowd":                 is_crowd_arr,
-            #         "max_classes":              max_classes_arr,
-            #         "box_to_gt_ind_map":        box_to_gt_ind_map_arr,
-            #         "gt_classes":               gt_class_arr,
-            #         "segms":                    segms_list,
-            #         "plane":                    self.plane,
-            #     }
-            #     roidb.append(dict)
-            # ###
-            # logger.debug(
-            #     '_add_gt_annotations took {:.3f}s'.
-            #     format(self.debug_timer.toc(average=False))
-            # )
-            # if not cfg.DEBUG:
-            #     with open(cache_filepath, 'wb') as fp:
-            #         pickle.dump(roidb, fp, pickle.HIGHEST_PROTOCOL)
-            #     logger.info('Cache ground truth roidb to %s', cache_filepath)
-
-        # for ind in range(50):
-        #     if (roidb[ind]['id']==20):
-        #         for k,v in roidb[ind].items():
-        #                 if k != "segms" or True:
-        #                     print('Key: ',k, '      Value:  ', v)
-        #                 # else:
-        #                     # print(type(v))
-        #                     # print(type(v[0]))
-        #                     # print(type(v[0][0]))
-        #                     # print(type(v[0][0][0]))
-        #                     # for ind in range(0, len(v)):
-        #                     #     print()
-        #                     #     print('Segment: ', ind)
-        #                     #     print()
-        #                     #     print(v[ind])
-        #
-        #                 print('')
 
 
 
@@ -460,6 +343,7 @@ class LArCVDataset(object):
         entry['has_visible_keypoints'] = False
         # Empty placeholders
         entry['boxes'] = np.empty((0, 4), dtype=np.float32)
+        entry['max_iou'] = np.empty((0), dtype=np.float32)
         entry['segms'] = []
         entry['gt_classes'] = np.empty((0), dtype=np.int32)
         entry['seg_areas'] = np.empty((0), dtype=np.float32)
@@ -520,10 +404,10 @@ class LArCVDataset(object):
                     for i in range(len(contour)):
                         if i%2==0:
                             #index is even, x coord
-                            this_poly.append(float(i+mask_box_arr[0]))
+                            this_poly.append(float(contour[i]+mask_box_arr[0]))
                         elif i%2==1:
                             #index is odd, y coord
-                            this_poly.append(float(i+mask_box_arr[1]))
+                            this_poly.append(float(contour[i]+mask_box_arr[1]))
                         else:
                             #index isn't even or oddself.
                             assert 1==2
@@ -534,7 +418,7 @@ class LArCVDataset(object):
             #     # delete_rows.append(idx)
             #     # print('idx inside: ',idx)
             #     continue
-            print(polygon_list)
+            # print(polygon_list)
             obj['segmentation'] = polygon_list
             obj['area'] = np.sum(mask_bin_arr)
             if obj['area'] < cfg.TRAIN.GT_MIN_AREA:
@@ -552,9 +436,11 @@ class LArCVDataset(object):
                 obj['iscrowd'] = 0
                 valid_objs.append(obj)
                 valid_segms.append(polygon_list)
+
         num_valid_objs = len(valid_objs)
 
         boxes = np.zeros((num_valid_objs, 4), dtype=entry['boxes'].dtype)
+        max_iou = np.zeros((num_valid_objs), dtype=entry['max_iou'].dtype)
         gt_classes = np.zeros((num_valid_objs), dtype=entry['gt_classes'].dtype)
         gt_overlaps = np.zeros(
             (num_valid_objs, self.num_classes),
@@ -593,7 +479,18 @@ class LArCVDataset(object):
                 gt_overlaps[ix, :] = -1.0
             else:
                 gt_overlaps[ix, cls] = 1.0
+
         entry['boxes'] = np.append(entry['boxes'], boxes, axis=0)
+
+        entry_ious = get_ious(entry['boxes'])
+        if len(entry['boxes']) > 1:
+            max_iou = entry_ious.max()
+        else:
+            max_iou = 0.0
+
+        entry['max_iou'] = np.append(entry['max_iou'], max_iou)
+
+
         entry['segms'].extend(valid_segms)
         # To match the original implementation:
         # entry['boxes'] = np.append(
@@ -626,9 +523,10 @@ class LArCVDataset(object):
         for entry, cached_entry in zip(roidb, cached_roidb):
             values = [cached_entry[key] for key in self.valid_cached_keys]
             boxes, segms, gt_classes, seg_areas, gt_overlaps, is_crowd, \
-                box_to_gt_ind_map, width, height, image, id, plane, flipped, chain_adc, chain_cluster = values[:15]
+                box_to_gt_ind_map, width, height, image, id, plane, flipped, chain_adc, \
+                chain_cluster, max_iou = values[:16]
             if self.keypoints is not None:
-                gt_keypoints, has_visible_keypoints = values[15:]
+                gt_keypoints, has_visible_keypoints = values[16:]
             # entry['boxes'] = np.append(entry['boxes'], boxes, axis=0)
             # entry['segms'].extend(segms)
             # # To match the original implementation:
@@ -657,6 +555,7 @@ class LArCVDataset(object):
             entry['box_to_gt_ind_map'] = box_to_gt_ind_map
             entry['chain_adc'] = chain_adc
             entry['chain_cluster'] = chain_cluster
+            entry['max_iou'] = max_iou
             if self.keypoints is not None:
                 entry['gt_keypoints'] = gt_keypoints
                 entry['has_visible_keypoints'] = has_visible_keypoints
@@ -836,11 +735,13 @@ def add_proposals(roidb, rois, scales, crowd_thresh):
     but no proposals. If the proposals are not at the original image scale,
     specify the scale factor that separate them in scales.
     """
+
     box_list = []
     for i in range(len(roidb)):
         inv_im_scale = 1. / scales[i]
         idx = np.where(rois[:, 0] == i)[0]
         box_list.append(rois[idx, 1:] * inv_im_scale)
+
     _merge_proposal_boxes_into_roidb(roidb, box_list)
     if crowd_thresh > 0:
         _filter_crowd_proposals(roidb, crowd_thresh)
@@ -885,6 +786,9 @@ def _merge_proposal_boxes_into_roidb(roidb, box_list):
 
             gt_overlaps[I, gt_classes[argmaxes[I]]] = maxes[I]
             box_to_gt_ind_map[I] = gt_inds[argmaxes[I]]
+        # print("entry['boxes'].shape",entry['boxes'].shape)
+        # print("boxes.astype(entry['boxes'].dtype, copy=False).shape",boxes.astype(entry['boxes'].dtype, copy=False).shape)
+
         entry['boxes'] = np.append(
             entry['boxes'],
             boxes.astype(entry['boxes'].dtype, copy=False),
@@ -961,3 +865,103 @@ def _sort_proposals(proposals, id_field):
     fields_to_sort = ['boxes', id_field, 'scores']
     for k in fields_to_sort:
         proposals[k] = [proposals[k][i] for i in order]
+
+def get_ious(boxes_in):
+    """Acquire a list of all the IoUs across the N boxes
+    in, returns (N-1)^2 elements in a list"""
+    numpy_iou = np.zeros((0), np.float)
+    for nbox1 in range(len(boxes_in)-1):
+        for nbox2 in range(nbox1+1, len(boxes_in)):
+            IOU = IoU(boxes_in[nbox1], boxes_in[nbox2])
+            numpy_iou = np.append(numpy_iou, IOU)
+    return numpy_iou
+
+
+
+def IoU(box1, box2):
+    """Return IoU between box1 and box2"""
+    assert len(box1) == 4
+    assert len(box2) == 4
+    iou=0.0
+    if box2[2] < box1[0] or box2[3] < box1[1] or box2[0] > box1[2] or box2[1]  > box1[3]:
+        return iou
+
+    box1_area = ( box1[2]+1 - box1[0] ) * ( box1[3]+1 - box1[1] )
+    box2_area = ( box2[2]+1 - box2[0] ) * ( box2[3]+1 - box2[1] )
+    overlap_minx = max(box1[0], box2[0])
+    overlap_maxx = min(box1[2], box2[2])
+    overlap_miny = max(box1[1], box2[1])
+    overlap_maxy = min(box1[3], box2[3])
+    overlap_area = float(( overlap_maxx+1 - overlap_minx ) * ( overlap_maxy+1 - overlap_miny ))
+    union_area = float(box1_area + box2_area - overlap_area)
+    iou = overlap_area/union_area
+    return iou
+
+def _cull_roidb_iou(roidb, thresh=0.0):
+    """This function takes in the roidb as a list of dictionaries
+    and a threshold for the iou to be above, and cuts the roidb to only
+    include entries where the max_iou is above the threshhold."""
+    if thresh == 0.0:
+        return roidb
+    new_roidb =[]
+    num_above_1 =0
+    num_above_2 =0
+    num_above_3 =0
+    num_above_4 =0
+    num_above_5 =0
+    num_above_6 =0
+    num_above_7 =0
+    num_above_8 =0
+    num_above_9 =0
+    for entry in roidb:
+        if entry['max_iou'] >= thresh:
+            new_roidb.append(entry)
+        if entry['max_iou'] >= .1:
+            num_above_1 = num_above_1 +1
+            if entry['max_iou'] >= .2:
+                num_above_2 = num_above_2 +1
+                if entry['max_iou'] >= .3:
+                    num_above_3 = num_above_3 +1
+                    if entry['max_iou'] >= .4:
+                        num_above_4 = num_above_4 +1
+                        if entry['max_iou'] >= .5:
+                            num_above_5 = num_above_5 +1
+                            if entry['max_iou'] >= .6:
+                                num_above_6 = num_above_6 +1
+                                if entry['max_iou'] >= .7:
+                                    num_above_7 = num_above_7 +1
+                                    if entry['max_iou'] >= .8:
+                                        num_above_8 = num_above_8 +1
+                                        if entry['max_iou'] >= .9:
+                                            num_above_9 = num_above_9 +1
+    print("Threshold Counts:")
+    print('----------------')
+    print()
+    print('Above 0.1: ',num_above_1)
+    print('----------------')
+    print()
+    print('Above 0.2: ',num_above_2)
+    print('----------------')
+    print()
+    print('Above 0.3: ',num_above_3)
+    print('----------------')
+    print()
+    print('Above 0.4: ',num_above_4)
+    print('----------------')
+    print()
+    print('Above 0.5: ',num_above_5)
+    print('----------------')
+    print()
+    print('Above 0.6: ',num_above_6)
+    print('----------------')
+    print()
+    print('Above 0.7: ',num_above_7)
+    print('----------------')
+    print()
+    print('Above 0.8: ',num_above_8)
+    print('----------------')
+    print()
+    print('Above 0.9: ',num_above_9)
+
+
+    return new_roidb
