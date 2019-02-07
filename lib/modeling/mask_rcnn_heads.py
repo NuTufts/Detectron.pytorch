@@ -25,8 +25,9 @@ import cv2
 
 class mask_rcnn_outputs(nn.Module):
     """Mask R-CNN specific outputs: either mask logits or probs."""
-    def __init__(self, dim_in):
+    def __init__(self, dim_in, validation=False):
         super().__init__()
+        self.validation=validation
         self.dim_in = dim_in
 
         n_classes = cfg.MODEL.NUM_CLASSES if cfg.MRCNN.CLS_SPECIFIC_MASK else 1
@@ -70,7 +71,7 @@ class mask_rcnn_outputs(nn.Module):
         x = self.classify(x)
         if cfg.MRCNN.UPSAMPLE_RATIO > 1:
             x = self.upsample(x)
-        if not self.training:
+        if not self.training and not self.validation:
             x = F.sigmoid(x)
         return x
 
@@ -400,8 +401,9 @@ class mask_rcnn_fcn_head_v0upshare(nn.Module):
 
     v0upshare design: conv5, convT 2x2.
     """
-    def __init__(self, dim_in, roi_xform_func, spatial_scale):
+    def __init__(self, dim_in, roi_xform_func, spatial_scale, validation=False):
         super().__init__()
+        self.validation =validation
         self.dim_in = dim_in
         self.roi_xform = roi_xform_func
         self.spatial_scale = spatial_scale
@@ -441,7 +443,7 @@ class mask_rcnn_fcn_head_v0upshare(nn.Module):
 
     def forward(self, x, rpn_ret, roi_has_mask_int32=None):
         # print('Then I am here!')
-        if self.training:
+        if self.training or self.validation:
             # On training, we share the res5 computation with bbox head, so it's necessary to
             # sample 'useful' batches from the input x (res5_2_sum). 'Useful' means that the
             # batch (roi) has corresponding mask groundtruth, namely having positive values in

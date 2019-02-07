@@ -83,7 +83,13 @@ def parse_args():
     parser.add_argument(
         '--merge_pdfs', type=distutils.util.strtobool, default=True)
 
+    parser.add_argument(
+        '--num_images',
+        help='Perform Infer on num_images or total images in file, whichever is less',
+        default=10, type=int)
+
     args = parser.parse_args()
+
 
     return args
 
@@ -162,8 +168,10 @@ def main():
     if not os.path.exists(args.output_dir):
         os.makedirs(args.output_dir)
 
-
-    for i in xrange(5):
+    if args.num_images > num_images:
+        args.num_images = num_images
+    print("Running through:", args.num_images, " images.")
+    for i in xrange(args.num_images):
         print('img', i)
         image2d_adc_crop_chain.GetEntry(i)
         entry_image2dadc_crop_data = image2d_adc_crop_chain.image2d_wire_branch

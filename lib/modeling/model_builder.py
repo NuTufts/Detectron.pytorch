@@ -26,6 +26,9 @@ import utils.vis as vis_utils
 import cv2
 from core.test import segm_results
 
+import time
+
+
 logger = logging.getLogger(__name__)
 
 
@@ -81,7 +84,14 @@ class Generalized_RCNN(nn.Module):
 
         # For Validation
         self.validation =validation
-
+        # self.timers ={}
+        # self.timers['squeezey'] =0.0
+        # self.timers['mask_losses'] =0.0
+        # self.timers['bbox_cls_loss']=0.0
+        # self.timers['rpn_losses'] =0.0
+        # self.timers['not_rpn_only'] =0.0
+        # self.timers['rpn_pass'] = 0.0
+        # self.timers['total_pass_time'] =0.0
         # For cache
         self.mapping_to_detectron = None
         self.orphans_in_detectron = None
@@ -118,10 +128,10 @@ class Generalized_RCNN(nn.Module):
         # Mask Branch
         if cfg.MODEL.MASK_ON:
             self.Mask_Head = get_func(cfg.MRCNN.ROI_MASK_HEAD)(
-                self.RPN.dim_out, self.roi_feature_transform, self.Conv_Body.spatial_scale)
+                self.RPN.dim_out, self.roi_feature_transform, self.Conv_Body.spatial_scale, self.validation)
             if getattr(self.Mask_Head, 'SHARE_RES5', False):
                 self.Mask_Head.share_res5_module(self.Box_Head.res5)
-            self.Mask_Outs = mask_rcnn_heads.mask_rcnn_outputs(self.Mask_Head.dim_out)
+            self.Mask_Outs = mask_rcnn_heads.mask_rcnn_outputs(self.Mask_Head.dim_out, self.validation)
 
         # Keypoints Branch
         if cfg.MODEL.KEYPOINTS_ON:
@@ -154,6 +164,9 @@ class Generalized_RCNN(nn.Module):
                 return self._forward(data, im_info, roidb, **rpn_kwargs)
 
     def _forward(self, data, im_info, roidb=None, **rpn_kwargs):
+        # self.timers['begin_forward_pass']=time.time()
+        relative_time =time.time()
+
         im_data = data
         if self.training or self.validation:
             roidb = list(map(lambda x: blob_utils.deserialize(x)[0], roidb))
@@ -162,12 +175,12 @@ class Generalized_RCNN(nn.Module):
 
         return_dict = {}  # A dict to collect return variables
 
-
         blob_conv = self.Conv_Body(im_data)
-
 
         rpn_ret = self.RPN(blob_conv, im_info, roidb)
 
+        # self.timers['rpn_pass'] += time.time() - relative_time
+        relative_time =time.time()
 
 
         if self.training or self.validation:
@@ -193,7 +206,8 @@ class Generalized_RCNN(nn.Module):
             # TODO: complete the returns for RPN only situation
             pass
 
-
+        # self.timers['not_rpn_only'] += time.time() - relative_time
+        relative_time =time.time()
         if self.training or self.validation:
             return_dict['losses'] = {}
             return_dict['metrics'] = {}
@@ -211,6 +225,8 @@ class Generalized_RCNN(nn.Module):
                 return_dict['losses']['loss_rpn_cls'] = loss_rpn_cls
                 return_dict['losses']['loss_rpn_bbox'] = loss_rpn_bbox
 
+            # self.timers['rpn_losses'] += time.time() - relative_time
+            relative_time =time.time()
             # bbox loss
             loss_cls, loss_bbox, accuracy_cls = fast_rcnn_heads.fast_rcnn_losses(
                 cls_score, bbox_pred, rpn_ret['labels_int32'], rpn_ret['bbox_targets'],
@@ -218,15 +234,19 @@ class Generalized_RCNN(nn.Module):
             return_dict['losses']['loss_cls'] = loss_cls
             return_dict['losses']['loss_bbox'] = loss_bbox
             return_dict['metrics']['accuracy_cls'] = accuracy_cls
+            # self.timers['bbox_cls_loss'] += time.time() - relative_time
+            relative_time =time.time()
+
             # return_dict['metrics']['TESTHIST'] = np.random.normal(size=10)
+
             if cfg.MODEL.MASK_ON:
                 if getattr(self.Mask_Head, 'SHARE_RES5', False):
-                    # print('First I am Here!')
-                    # print("res5_feat.shape", res5_feat.shape)
+
                     mask_feat = self.Mask_Head(res5_feat, rpn_ret,
                                                roi_has_mask_int32=rpn_ret['roi_has_mask_int32'])
                 else:
                     mask_feat = self.Mask_Head(blob_conv, rpn_ret)
+
                 mask_pred = self.Mask_Outs(mask_feat)
                 # return_dict['mask_pred'] = mask_pred
                 # mask loss
@@ -315,7 +335,8 @@ class Generalized_RCNN(nn.Module):
 
 
                 return_dict['losses']['loss_mask'] = loss_mask
-
+            # self.timers['mask_losses'] += time.time() - relative_time
+            relative_time=time.time()
             if cfg.MODEL.KEYPOINTS_ON:
                 if getattr(self.Keypoint_Head, 'SHARE_RES5', False):
                     # No corresponding keypoint head implemented yet (Neither in Detectron)
@@ -337,16 +358,29 @@ class Generalized_RCNN(nn.Module):
                 return_dict['losses']['loss_kps'] = loss_keypoints
 
             # pytorch0.4 bug on gathering scalar(0-dim) tensors
+
             for k, v in return_dict['losses'].items():
                 return_dict['losses'][k] = v.unsqueeze(0)
             for k, v in return_dict['metrics'].items():
                 return_dict['metrics'][k] = v.unsqueeze(0)
-
+            # self.timers['squeezey'] += time.time() - relative_time
+            relative_time=time.time()
         else:
             # Testing
             return_dict['rois'] = rpn_ret['rois']
             return_dict['cls_score'] = cls_score
             return_dict['bbox_pred'] = bbox_pred
+        # self.timers['total_pass_time'] += time.time()-self.timers['begin_forward_pass']
+
+        # total=0.0
+        # print("Total time Spent Forward Passing:", self.timers['total_pass_time'])
+        # for k,v in self.timers.items():
+        #     if k !='total_pass_time' and k !='begin_forward_pass':
+        #         key_time = float(self.timers[k])
+        #         print("Forward Pass Time Key:", k, ":", key_time)
+        #         print('-------------------------------------')
+        #         total+=key_time
+        # print('Total Forward Pass Sanity Check:', total)
 
         return return_dict
 

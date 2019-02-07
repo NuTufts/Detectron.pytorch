@@ -6,7 +6,7 @@ MODEL:
   MASK_ON: True
 RESNETS:
   IMAGENET_PRETRAINED_WEIGHTS: 'data/pretrained_model/resnet50_caffe.pth'
-NUM_GPUS: 1
+NUM_GPUS: 2
 SOLVER:
   WEIGHT_DECAY: 0.0001
   LR_POLICY: steps_with_decay
@@ -14,7 +14,7 @@ SOLVER:
   #was .01
   GAMMA: 0.1
   # 1x schedule (note TRAIN.IMS_PER_BATCH: 1)
-  MAX_ITER: 1
+  MAX_ITER: 10 #274500
   STEPS: [0]
 RPN:
   SIZES: (32, 64, 128, 256, 512)
@@ -34,7 +34,7 @@ MRCNN:
   DILATION: 1  # default 2
   CONV_INIT: MSRAFill  # default: GaussianFill
 TRAIN:
-  SNAPSHOT_ITERS: 5000
+  SNAPSHOT_ITERS: 10000
   SCALES: (512,)
   MAX_SIZE: 832
   IMS_PER_BATCH: 1
@@ -44,7 +44,7 @@ TRAIN:
   # RPN_NMS_THRESH: 0.1
   RPN_NMS_THRESH: 0.5
 
-  GT_IOU_THRESH: 0.0
+  # GT_IOU_THRESH: 0.2
 TEST:
   SCALE: 1008
   MAX_SIZE: 3456

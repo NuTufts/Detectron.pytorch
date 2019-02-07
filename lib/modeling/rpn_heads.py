@@ -38,6 +38,7 @@ class single_scale_rpn_outputs(nn.Module):
     """Add RPN outputs to a single scale model (i.e., no FPN)."""
     def __init__(self, dim_in, spatial_scale, validation=False):
         super().__init__()
+        self.validation = validation
         self.dim_in = dim_in
         self.dim_out = dim_in if cfg.RPN.OUT_DIM_AS_IN_DIM else cfg.RPN.OUT_DIM
         anchors = generate_anchors(
@@ -55,10 +56,10 @@ class single_scale_rpn_outputs(nn.Module):
         # Proposal bbox regression deltas
         self.RPN_bbox_pred = nn.Conv2d(self.dim_out, num_anchors * 4, 1, 1, 0)
 
-        self.RPN_GenerateProposals = GenerateProposalsOp(anchors, spatial_scale)
+        self.RPN_GenerateProposals = GenerateProposalsOp(anchors, spatial_scale, self.validation)
         self.RPN_GenerateProposalLabels = GenerateProposalLabelsOp()
 
-        self.validation = validation
+
 
         self._init_weights()
 
@@ -121,42 +122,13 @@ class single_scale_rpn_outputs(nn.Module):
             if self.training or self.validation:
                 # Add op that generates training labels for in-network RPN proposals
                 blobs_out = self.RPN_GenerateProposalLabels(rpn_rois, roidb, im_info)
-                # for k,v in blobs_out.items():
-                #     print('key', k)
-                #     print('type', type(v))
-                #     if hasattr(v, 'shape'):
-                #         print('shape', v.shape)
-                # print()
-                # for k,v in return_dict.items():
-                #     print('key', k)
-                #     print('type', type(v))
-                #     if hasattr(v, 'shape'):
-                #         print('shape', v.shape)
+    
                 return_dict.update(blobs_out)
             else:
                 # Alias rois to rpn_rois for inference
                 return_dict['rois'] = return_dict['rpn_rois']
 
-        # print()
-        # import numpy as np
-        # # np.set_printoptions(threshold=np.inf)
-        # print(len(return_dict['rois']))
-        # # print((return_dict['rois']))
-        #
-        # print(len(return_dict['rpn_rois']))
-        # # print((return_dict['rpn_rois']))
-        # ind_del =[]
-        # for ibox in range(len(return_dict['rois'])):
-        #     if return_dict['rois'][ibox][1] == np.floor(return_dict['rois'][ibox][1]) and return_dict['rois'][ibox][2] == np.floor(return_dict['rois'][ibox][2]) and return_dict['rois'][ibox][3] == np.floor(return_dict['rois'][ibox][3]) and return_dict['rois'][ibox][4] == np.floor(return_dict['rois'][ibox][4]):
-        #         ind_del.append(ibox)
-        #
-        # # for ind in ind_del:
-        # for k,v in return_dict.items():
-        #     print('key', k)
-        #     print('type', type(v))
-        #     if hasattr(v, 'shape'):
-        #         print('shape', v.shape)
-        #     print('-------------------')
+
         return return_dict
 
 

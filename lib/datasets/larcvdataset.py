@@ -202,7 +202,7 @@ class LArCVDataset(object):
         assert image2d_adc_crop_chain.GetEntries() == clustermask_cluster_crop_chain.GetEntries()
 
         self.NUM_IMAGES=clustermask_cluster_crop_chain.GetEntries()
-        self.NUM_IMAGES=100
+        # self.NUM_IMAGES=20
         self.SPECIFIC_IMAGE_START=0
 
 
@@ -259,50 +259,7 @@ class LArCVDataset(object):
                 if count%int(print_cond)==0:
                     print(count, " Complete took time: ", self.debug_timer.toc(average=False))
                 self._add_gt_annotations(entry, clustermask_cluster_crop_chain)
-                # if (len(entry['boxes']) < 2):
-                #     max_iou = np.append(max_iou, 0.0)
-                #     continue
-                # entry_ious = get_ious(entry['boxes'])
-                # # print('BOXES')
-                # # print("LENGTH BOXES", len(entry['boxes']))
-                # # print(entry['boxes'])
-                # all_ious = np.append(all_ious, entry_ious)
-                # # print()
-                # # print('ENTRY_IOUS')
-                # # print(entry_ious)
-                # # print()
-                # max_iou = np.append(max_iou, entry_ious.max())
-                #
-                # # print('MAX IOU')
-                # # print(max(get_ious(entry['boxes'])))
 
-            # fig = pl.hist(max_iou, density=False, bins=20)
-            # pl.title('Max IoU Per Image')
-            # pl.xlabel("IoU Value")
-            # pl.ylabel("Count")
-            # pl.savefig("IoU_max.png")
-            # pl.clf()
-            #
-            # fig2 = pl.hist(all_ious,density=False, bins=20)
-            # pl.title('IoU Distribution')
-            # pl.xlabel("IoU Value")
-            # pl.ylabel("Count")
-            # pl.savefig("IoU_dist.png")
-            # pl.clf()
-            #
-            # fig3 = pl.hist(max_iou, density=False, range=(0.0001,1.01), bins=20)
-            # pl.title('Max IoU Per Image, Zeros Ignored')
-            # pl.xlabel("IoU Value")
-            # pl.ylabel("Count")
-            # pl.savefig("IoU_max_no_zero.png")
-            # pl.clf()
-            #
-            # fig4 = pl.hist(all_ious,density=False, range=(0.0001,1.01), bins=20)
-            # pl.title('IoU Distribution, Zeroes Ignored')
-            # pl.xlabel("IoU Value")
-            # pl.ylabel("Count")
-            # pl.savefig("IoU_dist_no_zero.png")
-            # pl.close()
 
             logger.debug(
             '_add_gt_annotations took {:.3f}s'.

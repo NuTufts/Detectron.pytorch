@@ -44,7 +44,6 @@ class ResNet_convX_body(nn.Module):
         super().__init__()
         self.block_counts = block_counts
         self.convX = len(block_counts) + 1
-        print("convX", self.convX)
         self.num_layers = (sum(block_counts) + 3 * (self.convX == 4)) * 3 + 2
 
         self.res1 = globals()[cfg.RESNETS.STEM_FUNC]()
@@ -110,18 +109,14 @@ class ResNet_convX_body(nn.Module):
     def train(self, mode=True):
         # Override
         self.training = mode
-        print("mode",mode)
 
         for i in range(cfg.RESNETS.FREEZE_AT + 1, self.convX + 1):
             getattr(self, 'res%d' % i).train(mode)
 
     def forward(self, x):
         for i in range(self.convX):
-            print(i)
-            print(x.shape)
-            print("------------------")
             x = getattr(self, 'res%d' % (i + 1))(x)
-            print(x.shape)
+
         return x
 
 
@@ -285,9 +280,6 @@ class bottleneck_transformation(nn.Module):
         self.relu = nn.ReLU(inplace=True)
 
     def forward(self, x):
-        print()
-        print("XSHAPE",x.shape)
-        print()
         residual = x
 
         out = self.conv1(x)

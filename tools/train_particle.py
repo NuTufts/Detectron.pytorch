@@ -36,6 +36,8 @@ import numpy as np
 import utils.vis as vis_utils
 import cv2
 
+import time
+
 # Set up logging and load config options
 logger = setup_logging(__name__)
 logging.getLogger('roi_data.loader').setLevel(logging.INFO)
@@ -387,6 +389,18 @@ def main():
     try:
         logger.info('Training starts !')
         step = args.start_step
+        # etimer ={}
+        # etimer['start_all'] = time.time()
+        # etimer['training_stats.IterTic()'] = 0.0
+        # etimer['optimizer.zero_grad()'] = 0.0
+        # etimer['dataiterator'] =0.0
+        # etimer['loop_through input_data'] =0.0
+        # etimer['forward_pass']=0.0
+        # etimer['Update_iterstats']=0.0
+        # etimer['backward_pass']=0.0
+        # etimer['optimizer.step']=0.0
+        # etimer['training_stats.itertoc'] =0.0
+        # etimer['logiterstats'] =0.0
         for step in range(args.start_step, cfg.SOLVER.MAX_ITER):
 
             # Warm up
@@ -417,108 +431,77 @@ def main():
                 lr = optimizer.param_groups[0]['lr']
                 assert lr == lr_new
                 decay_steps_ind += 1
-
+            # time_before = time.time()
             training_stats.IterTic()
+            # etimer['training_stats.IterTic()'] += time.time()-time_before
+
+            # time_before = time.time()
             optimizer.zero_grad()
+            # etimer['optimizer.zero_grad()'] += time.time()-time_before
+
             for inner_iter in range(args.iter_size):
+                # time_before = time.time()
                 try:
                     input_data = next(dataiterator)
                 except StopIteration:
                     dataiterator = iter(dataloader)
                     input_data = next(dataiterator)
+                # etimer['dataiterator'] += time.time()-time_before
 
+                # time_before = time.time()
                 for key in input_data:
                     if key != 'roidb': # roidb is a list of ndarrays with inconsistent length
                         input_data[key] = list(map(Variable, input_data[key]))
+                # etimer['loop_through input_data'] += time.time()-time_before
 
-
-                # for k,v in input_data.items():
-                #     print("Key: ", k)
-                #     print(type(v), " with length: ", len(v))
-                #     for el in v[:]:
-                #         print("     type el:",type(el), " with length", len(el) )
-                #         if isinstance(el, (list,)):
-                #             print("          Is list:")
-                            # for el2 in el[:]:
-                            #     print("          List Element Type, Shape: ", type(el2), " ", el2.shape )
-                #                 if isinstance(el2, (np.ndarray,)):
-                #                     print("              Type in Array0: ",type(el2[0]))
-                #                     print("              Type in Array1: ",type(el2[1]))
-                #                     print("              Type in Array2: ",type(el2[2]))
-                #
-                #                     print("              Sum of Array: ", np.sum(el2))
-                #         elif isinstance(el, (torch.Tensor,)):
-                #             print("          Is tensor")
-                #             print("          Dimensions: ", el.size() )
-                #             if len(k) ==7:
-                #                 print("             ", el)
-                #             for el2 in el[:]:
-                #                 print("          Tensor Element Type, Len: ", type(el2), " ", len(el2) )
-
-                #     print("")
-                # print("EoD")
-
-
-                # for k,v in input_data.items():
-                #     print('key: ', k)
-                # if cfg.TRAIN.MAKE_IMAGES:
-                #
-                #     boxes = np.array([[50,50,60,60,.99],[1,1,5,5,.99]])
-                #     print('Len',len(input_data['data']))
-                #     print('Type [0]',type(input_data['data'][0]))
-                #     print('Shape [0]',input_data['data'][0].shape)
-                #
-                #
-                #     im_numpy = (input_data['data'][0]).squeeze().numpy()
-                #     im_numpy = np.swapaxes(im_numpy,2,1)
-                #     im_numpy = np.swapaxes(im_numpy,2,0)
-                #     im_numpy[im_numpy>0] = 100
-                #     im_numpy[im_numpy<=0] =0
-                #     vis_utils.vis_one_image(
-                #         im_numpy,
-                #         'BadImage',
-                #         'hmmm/',
-                #         boxes,
-                #         None,
-                #         None,
-                #         dataset=datasets.get_particle_dataset(),
-                #         box_alpha=0.3,
-                #         show_class=True,
-                #         thresh=0.7,
-                #         kp_thresh=2,
-                #         plain_img=True
-                #     )
-
-                # torch.set_printoptions(profile="full")
-                # torch.set_printoptions(precision=2)
-                # print('start')
-                # print(input_data['data'][0][0,0,0:510,25:30])
-                # print('stop')
-                # for k,v in input_data.items():
-                #     print("Key:", k)
-                #     print("Type:", type(v))
-                #     if k=='data':
-                #         print(v[0].shape)
-                # print("IM INFO")
-                # print(input_data['im_info'][0][0].data.cpu().numpy())
+                # time_before = time.time()
                 net_outputs = maskRCNN(**input_data)
-                print()
-                print()
-                for k,v in net_outputs.items():
-                    print("Key", k)
-                    print("Vtype", type(v))
-                print()
-                print()
-                training_stats.UpdateIterStats(net_outputs, inner_iter)
-                loss = net_outputs['total_loss']
-                loss.backward()
-            optimizer.step()
-            training_stats.IterToc()
+                # etimer['forward_pass'] += time.time()-time_before
 
+                # time_before = time.time()
+                training_stats.UpdateIterStats(net_outputs, inner_iter)
+                # etimer['Update_iterstats'] += time.time()-time_before
+
+                loss = net_outputs['total_loss']
+
+                # time_before = time.time()
+                loss.backward()
+                # etimer['backward_pass'] += time.time()-time_before
+
+            # time_before = time.time()
+            optimizer.step()
+            # etimer['optimizer.step'] += time.time()-time_before
+
+            # time_before = time.time()
+            training_stats.IterToc()
+            # etimer['training_stats.itertoc'] += time.time()-time_before
+
+            # time_before = time.time()
             training_stats.LogIterStats(step, lr)
+            # etimer['logiterstats'] += time.time()-time_before
 
             if (step+1) % CHECKPOINT_PERIOD == 0:
                 save_ckpt(output_dir, args, step, train_size, maskRCNN, optimizer)
+
+
+        # etimer['Full_Training_Loop'] = time.time() - etimer['start_all']
+        # for k,v in etimer.items():
+        #     if k !='Full_Training_Loop' and k !='start_all':
+        #         etimer[k] = float(etimer[k])/float(etimer['Full_Training_Loop'])*100
+        # print("Total Time: ", etimer['Full_Training_Loop'])
+        # print()
+        # etimer['Full_Training_Loop'] = 100.0
+        # total=0.0
+        # for k,v in etimer.items():
+        #     if k!='start_all' and k!='Full_Training_Loop':
+        #         total +=v
+        #
+        #         if v < 1.0:
+        #             continue
+        #         print("Time Key:", k, ":", v)
+        #         # print()
+        #         print('-------------------------------------')
+        # print('Total Time Sanity Check:', total)
 
         # ---- Training ends ----
         # Save last checkpoint

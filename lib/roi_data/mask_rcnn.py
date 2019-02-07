@@ -45,6 +45,7 @@ def add_mask_rcnn_blobs(blobs, sampled_boxes, roidb, im_scale, batch_idx):
     """Add Mask R-CNN specific blobs to the input blob dictionary."""
     # Prepare the mask targets by associating one gt mask to each training roi
     # that has a fg (non-bg) class label.
+    print("roidb['id']      :     ", roidb['id'])
     M = cfg.MRCNN.RESOLUTION
     polys_gt_inds = np.where((roidb['gt_classes'] > 0) &
                              (roidb['is_crowd'] == 0))[0]
@@ -228,7 +229,7 @@ def _expand_to_class_specific_mask_targets(masks, mask_class_labels):
 def resize_mask_to_set_dim(mask_gt_orig_size, roi_fg, box_gt, M):
     """Take in original binary gt mask at original size in gt bbox
     Then take roi_fg (the predicted bbox) and crop the gt mask into it
-    Finally output a square matrix pooled or upstampled version to
+    Finally output a square matrix pooled or upsampled version to
     dimensions MxM
     """
     #plus one to include the

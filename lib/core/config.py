@@ -173,7 +173,7 @@ __C.DATA_LOADER = AttrDict()
 # Number of Python threads to use for the data loader (warning: using too many
 # threads can cause GIL-based interference with Python Ops leading to *slower*
 # training; 4 seems to be the sweet spot in our experience)
-__C.DATA_LOADER.NUM_THREADS = 0
+__C.DATA_LOADER.NUM_THREADS = 4
 
 
 # ---------------------------------------------------------------------------- #
@@ -958,7 +958,7 @@ __C.EPS = 1e-14
 __C.ROOT_DIR = osp.abspath(osp.join(osp.dirname(__file__), '..', '..'))
 
 # Output basedir
-__C.OUTPUT_DIR = 'Outputs'
+__C.OUTPUT_DIR = '/media/disk1/jmills/Outputs'
 
 # Name (or path to) the matlab executable
 __C.MATLAB = 'matlab'
