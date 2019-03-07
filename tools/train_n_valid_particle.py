@@ -36,6 +36,8 @@ import numpy as np
 import utils.vis as vis_utils
 import cv2
 
+import time
+
 # Set up logging and load config options
 logger = setup_logging(__name__)
 logging.getLogger('roi_data.loader').setLevel(logging.INFO)
@@ -163,7 +165,8 @@ def main():
         cfg.TRAIN.DATASETS = ('keypoints_coco_2017_train',)
         cfg.MODEL.NUM_CLASSES = 2
     elif args.dataset == "particle":
-        cfg.TRAIN.DATASETS = ('particle_physics_valid')
+        cfg.TRAIN.DATASETS_TRAIN = ('particle_physics_train')
+        cfg.TRAIN.DATASETS_TRAIN = ('particle_physics_valid')
         cfg.MODEL.NUM_CLASSES = 7
         # 0=Muon (cosmic), 1=Neutron, 2=Proton, 3=Electron, 4=neutrino, 5=Other
     else:
@@ -236,34 +239,57 @@ def main():
 
     ### Dataset ###
     timers['roidb'].tic()
-    roidb, ratio_list, ratio_index = combined_roidb_for_training(
-        cfg.TRAIN.DATASETS, cfg.TRAIN.PROPOSAL_FILES)
+    roidb_train, ratio_list_train, ratio_index_train = combined_roidb_for_training(
+        cfg.TRAIN.DATASETS_TRAIN, cfg.TRAIN.PROPOSAL_FILES)
+    roidb_valid, ratio_list_valid, ratio_index_valid = combined_roidb_for_training(
+        cfg.TRAIN.DATASETS_VALID, cfg.TEST.PROPOSAL_FILES)
     timers['roidb'].toc()
-    roidb_size = len(roidb)
-    logger.info('{:d} roidb entries'.format(roidb_size))
-    logger.info('Takes %.2f sec(s) to construct roidb', timers['roidb'].average_time)
+    roidb_size_train = len(roidb_train)
+    roidb_size_valid = len(roidb_valid)
+
+    logger.info('{:d} roidb (train) entries'.format(roidb_size_train))
+    logger.info('{:d} roidb (valid) entries'.format(roidb_size_valid))
+    logger.info('Takes %.2f sec(s) to construct roidb (train and valid)', timers['roidb'].average_time)
 
     # Effective training sample size for one epoch
     train_size = roidb_size // args.batch_size * args.batch_size
 
-    batchSampler = BatchSampler(
-        sampler=MinibatchSampler(ratio_list, ratio_index),
+    ###Setup datastream for train
+    batchSampler_train = BatchSampler(
+        sampler=MinibatchSampler(ratio_list_train, ratio_index_train),
         batch_size=args.batch_size,
         drop_last=True
     )
-    dataset = RoiDataLoader(
-        roidb,
+    dataset_train = RoiDataLoader(
+        roidb_train,
         cfg.MODEL.NUM_CLASSES,
-        training=False)
-    dataloader = torch.utils.data.DataLoader(
-        dataset,
-        batch_sampler=batchSampler,
+        training=True)
+    dataloader_train = torch.utils.data.DataLoader(
+        dataset_train,
+        batch_sampler=batchSampler_train,
         num_workers=cfg.DATA_LOADER.NUM_THREADS,
         collate_fn=collate_minibatch)
-    dataiterator = iter(dataloader)
+    dataiterator_train = iter(dataloader_train)
+
+    #Setup Datastream for validation
+    batchSampler_valid = BatchSampler(
+        sampler=MinibatchSampler(ratio_list_valid, ratio_index_valid),
+        batch_size=args.batch_size,
+        drop_last=True
+    )
+    dataset_valid = RoiDataLoader(
+        roidb_valid,
+        cfg.MODEL.NUM_CLASSES,
+        training=False)
+    dataloader_valid = torch.utils.data.DataLoader(
+        dataset_valid,
+        batch_sampler=batchSampler_valid,
+        num_workers=cfg.DATA_LOADER.NUM_THREADS,
+        collate_fn=collate_minibatch)
+    dataiterator_valid = iter(dataloader_valid)
 
     ### Model ###
-    maskRCNN = Generalized_RCNN(validation=True)
+    maskRCNN = Generalized_RCNN()
 
     if cfg.CUDA:
         maskRCNN.cuda()
@@ -367,7 +393,7 @@ def main():
             tblogger = SummaryWriter(output_dir)
 
     ### Training Loop ###
-    maskRCNN.eval()
+    maskRCNN.train()
 
     CHECKPOINT_PERIOD = int(cfg.TRAIN.SNAPSHOT_ITERS / cfg.NUM_GPUS)
 
@@ -387,6 +413,18 @@ def main():
     try:
         logger.info('Training starts !')
         step = args.start_step
+        # etimer ={}
+        # etimer['start_all'] = time.time()
+        # etimer['training_stats.IterTic()'] = 0.0
+        # etimer['optimizer.zero_grad()'] = 0.0
+        # etimer['dataiterator'] =0.0
+        # etimer['loop_through input_data'] =0.0
+        # etimer['forward_pass']=0.0
+        # etimer['Update_iterstats']=0.0
+        # etimer['backward_pass']=0.0
+        # etimer['optimizer.step']=0.0
+        # etimer['training_stats.itertoc'] =0.0
+        # etimer['logiterstats'] =0.0
         for step in range(args.start_step, cfg.SOLVER.MAX_ITER):
 
             # Warm up
@@ -417,43 +455,86 @@ def main():
                 lr = optimizer.param_groups[0]['lr']
                 assert lr == lr_new
                 decay_steps_ind += 1
-
+            # time_before = time.time()
             training_stats.IterTic()
+            # etimer['training_stats.IterTic()'] += time.time()-time_before
+
+            # time_before = time.time()
             optimizer.zero_grad()
+            # etimer['optimizer.zero_grad()'] += time.time()-time_before
+
             for inner_iter in range(args.iter_size):
+                # time_before = time.time()
                 try:
                     input_data = next(dataiterator)
                 except StopIteration:
                     dataiterator = iter(dataloader)
                     input_data = next(dataiterator)
+                # etimer['dataiterator'] += time.time()-time_before
 
+                # time_before = time.time()
                 for key in input_data:
                     if key != 'roidb': # roidb is a list of ndarrays with inconsistent length
                         input_data[key] = list(map(Variable, input_data[key]))
+                # etimer['loop_through input_data'] += time.time()-time_before
 
-
+                # time_before = time.time()
                 net_outputs = maskRCNN(**input_data)
+                # etimer['forward_pass'] += time.time()-time_before
+
+                # time_before = time.time()
                 training_stats.UpdateIterStats(net_outputs, inner_iter)
+                # etimer['Update_iterstats'] += time.time()-time_before
+
                 loss = net_outputs['total_loss']
 
-                # No Backward pass, we're doing validation
-                # loss.backward()
+                # time_before = time.time()
+                loss.backward()
+                # etimer['backward_pass'] += time.time()-time_before
+
+            # time_before = time.time()
             optimizer.step()
+            # etimer['optimizer.step'] += time.time()-time_before
+
+            # time_before = time.time()
             training_stats.IterToc()
+            # etimer['training_stats.itertoc'] += time.time()-time_before
 
+            # time_before = time.time()
             training_stats.LogIterStats(step, lr)
+            # etimer['logiterstats'] += time.time()-time_before
 
-            # if (step+1) % CHECKPOINT_PERIOD == 0:
-            #     save_ckpt(output_dir, args, step, train_size, maskRCNN, optimizer)
+            if (step+1) % CHECKPOINT_PERIOD == 0:
+                save_ckpt(output_dir, args, step, train_size, maskRCNN, optimizer)
+
+
+        # etimer['Full_Training_Loop'] = time.time() - etimer['start_all']
+        # for k,v in etimer.items():
+        #     if k !='Full_Training_Loop' and k !='start_all':
+        #         etimer[k] = float(etimer[k])/float(etimer['Full_Training_Loop'])*100
+        # print("Total Time: ", etimer['Full_Training_Loop'])
+        # print()
+        # etimer['Full_Training_Loop'] = 100.0
+        # total=0.0
+        # for k,v in etimer.items():
+        #     if k!='start_all' and k!='Full_Training_Loop':
+        #         total +=v
+        #
+        #         if v < 1.0:
+        #             continue
+        #         print("Time Key:", k, ":", v)
+        #         # print()
+        #         print('-------------------------------------')
+        # print('Total Time Sanity Check:', total)
 
         # ---- Training ends ----
         # Save last checkpoint
-        # save_ckpt(output_dir, args, step, train_size, maskRCNN, optimizer)
+        save_ckpt(output_dir, args, step, train_size, maskRCNN, optimizer)
 
     except (RuntimeError, KeyboardInterrupt):
         del dataiterator
         logger.info('Save ckpt on exception ...')
-        # save_ckpt(output_dir, args, step, train_size, maskRCNN, optimizer)
+        save_ckpt(output_dir, args, step, train_size, maskRCNN, optimizer)
         logger.info('Save ckpt done.')
         stack_trace = traceback.format_exc()
         print(stack_trace)

@@ -202,7 +202,8 @@ class LArCVDataset(object):
         assert image2d_adc_crop_chain.GetEntries() == clustermask_cluster_crop_chain.GetEntries()
 
         self.NUM_IMAGES=clustermask_cluster_crop_chain.GetEntries()
-        # self.NUM_IMAGES=20
+        # if self.validation ==True:
+            # self.NUM_IMAGES=2
         self.SPECIFIC_IMAGE_START=0
 
 

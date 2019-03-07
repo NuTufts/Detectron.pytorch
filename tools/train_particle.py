@@ -263,8 +263,8 @@ def main():
         num_workers=cfg.DATA_LOADER.NUM_THREADS,
         collate_fn=collate_minibatch)
     dataiterator = iter(dataloader)
-
     ### Model ###
+    assert 1 ==2
     maskRCNN = Generalized_RCNN()
 
     if cfg.CUDA:

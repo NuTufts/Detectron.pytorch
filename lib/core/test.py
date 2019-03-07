@@ -48,9 +48,11 @@ import utils.keypoints as keypoint_utils
 
 #to Vis
 import datasets.dummy_datasets as datasets
-import numpy as np
 import utils.vis as vis_utils
 import cv2
+
+#to purity efficiency
+from datasets.larcvdataset import IoU
 
 
 def im_detect_all(model, im, box_proposals=None, timers=None):
@@ -1019,3 +1021,138 @@ def _get_blobs(im, rois, target_scale, target_max_size):
     if rois is not None:
         blobs['rois'] = _get_rois_blob(rois, im_scale)
     return blobs, im_scale
+
+def efficiency_calculation(gt_box, gt_mask, pred_boxes, pred_masks, adc_image):
+    ### Take in one ground truth box and its mask, then loop through all
+    ### the predicted boxes adding up their coverages to find what % of GT is
+    ### covered by their union
+    ### also record the chosen's IoU with another GT mask
+    percent_covered = 0
+
+    #Get Union of pred_boxes
+    union_pred = np.zeros(gt_mask.shape)
+    for pred_index in range(pred_masks.shape[2]):
+        pred_box = pred_boxes[pred_index,:]
+        if not do_boxes_overlap(pred_box[0:4], gt_box[0:4]):
+            #save some compute time, dont sum masks if boxes not overlapping
+            continue
+        union_pred = union_pred + pred_masks[:,:,pred_index]
+    #make union a binary:
+    union_pred[union_pred > 0]  = 1
+    union_pred[union_pred <= 0] = 0
+
+
+    gt_mask_box = gt_mask[int(np.floor(gt_box[1])):int(np.ceil(gt_box[3]+1)),int(np.floor(gt_box[0])):int(np.ceil(gt_box[2]+1))]
+    union_pred_box = union_pred[int(np.floor(gt_box[1])):int(np.ceil(gt_box[3]+1)),int(np.floor(gt_box[0])):int(np.ceil(gt_box[2]+1))]
+    adc_image_box = adc_image[int(np.floor(gt_box[1])):int(np.ceil(gt_box[3]+1)),int(np.floor(gt_box[0])):int(np.ceil(gt_box[2]+1))]
+
+    pixels_covered   = np.sum(np.multiply(np.multiply(union_pred_box,gt_mask_box),adc_image_box))
+    total_gt_pixels  = np.sum(np.multiply(gt_mask_box,adc_image_box))
+    if total_gt_pixels == 0:
+        #must be a dead region or not above adc threshold, let's not count this
+        return -1
+
+    percent_covered = float(pixels_covered)/float(total_gt_pixels)
+
+    return percent_covered
+
+def best_iou(index, box_list):
+    ### Take in a list of boxes of shape (N, 5) where the 5 represents
+    ### X1,Y1,X2,Y2, score/class and a target index. Loop through all other
+    ### indices in box_list to find the greatest IoU with the target index box
+    assert index >= 0 and index < box_list.shape[0]
+    best_iou =0
+    target_box = box_list[index,:]
+
+    for compare_index in range(box_list.shape[0]):
+        if compare_index == index:
+            continue
+        this_iou = IoU(target_box[0:4], box_list[compare_index,0:4])
+        if this_iou >= best_iou:
+            best_iou = this_iou
+    return best_iou
+
+
+def purity_calculation(pred_box, pred_mask, gt_boxes, gt_masks, adc_image):
+    ### Take in one prediction box and its mask, then loop through all
+    ### the ground truth boxes figuring out which has the highest % coverage
+    ### then also record the 2 highest IoU to ground truth to see how easily
+    ### the prediction was to match to a GT
+    ### it also uses an adc image to cut away pixels below some threshold in
+    ### both the numerator and denominator
+    percent_covered = 0
+
+    # print()
+    # print("pred_box.shape" , pred_box.shape)
+    # print(pred_box)
+    # print("pred_mask.shape" , pred_mask.shape)
+    # print("gt_boxes.shape" , gt_boxes.shape)
+    # print("gt_masks.shape" , gt_masks.shape)
+    index_best_coverage = -1
+    for gt_index in range(gt_boxes.shape[0]):
+        gt_box = gt_boxes[gt_index,:]
+        if not do_boxes_overlap(gt_box[0:4], pred_box[0:4]):
+            #Boxes do not overlap, skip comparison of this GT to our pred
+            # print("boxes not overlapping")
+            continue
+        # box_ints = [int(np.floor(pred_box[1])),int(np.ceil(pred_box[3]+1)),int(np.floor(pred_box[0])),int(np.ceil(pred_box[2]+1))]
+
+        gt_mask = gt_masks[:,:,gt_index]
+        gt_mask_box = gt_mask[int(np.floor(pred_box[1])):int(np.ceil(pred_box[3]+1)),int(np.floor(pred_box[0])):int(np.ceil(pred_box[2]+1))]
+        pred_mask_box = pred_mask[int(np.floor(pred_box[1])):int(np.ceil(pred_box[3]+1)),int(np.floor(pred_box[0])):int(np.ceil(pred_box[2]+1))]
+        adc_image_box = adc_image[int(np.floor(pred_box[1])):int(np.ceil(pred_box[3]+1)),int(np.floor(pred_box[0])):int(np.ceil(pred_box[2]+1))]
+
+        overlap_count = np.sum(np.multiply(np.multiply(pred_mask_box,gt_mask_box),adc_image_box))
+        pred_count = np.sum(np.multiply(pred_mask_box,adc_image_box))
+        if pred_count ==0:
+            this_percent=0
+        else:
+            this_percent = float(overlap_count)/float(pred_count)
+        if this_percent > percent_covered:
+            percent_covered = this_percent
+            index_best_coverage = gt_index
+        # print()
+        # print("this_percent", this_percent)
+        # print("numerator:" ,float(overlap_count))
+        # print("denominator:", float(pred_count))
+        # print()
+    best_iou =0
+    next_best_iou = 0
+    index_best_iou =-1
+    for gt_index in range(gt_boxes.shape[0]):
+        this_iou = IoU(pred_box[0:4], gt_boxes[gt_index,0:4])
+        if this_iou >= best_iou:
+            next_best_iou = best_iou
+            best_iou = this_iou
+            index_best_iou =gt_index
+        elif this_iou > next_best_iou:
+            next_best_iou = this_iou
+
+    if index_best_coverage == -1:
+        same = -1
+    elif (index_best_coverage ==index_best_iou):
+        same = 1
+    else:
+        same = 0
+    return percent_covered, best_iou, next_best_iou, same
+
+
+def do_boxes_overlap(box1, box2):
+    ### Take in two boxes in (x1,y1,x2,y2) format, and return whether they
+    ### overlap
+
+    #Check if box 1 is all right of box 2
+    if box1[0] > box2[2]:
+        return False
+    #Check if box 1 all above box 2
+    elif box1[1] > box2[3]+1:
+        return False
+    #Check if box 1 is all left of box 2
+    elif box1[2]+1 < box2[0]:
+        return False
+    #Check if box 1 is all below box 2
+    elif box1[3]+1 < box2[1]:
+        return False
+    #Eliminate the impossible, what remains is what is. They overlap
+    else:
+        return True

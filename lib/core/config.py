@@ -164,6 +164,14 @@ __C.TRAIN.GT_MIN_AREA = -1
 # Freeze the backbone architecture during training if set to True
 __C.TRAIN.FREEZE_CONV_BODY = False
 
+# ---------------------------------------------------------------------------- #
+# Validation options
+# ---------------------------------------------------------------------------- #
+# Note that Train Parameters are still used so that validation is done just as
+# training, however params unique to validation go here.
+
+__C.VALID = AttrDict()
+
 
 # ---------------------------------------------------------------------------- #
 # Data loader options

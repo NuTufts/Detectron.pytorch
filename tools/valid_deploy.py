@@ -283,6 +283,7 @@ def main():
     nograd_param_names = []
     for key, value in maskRCNN.named_parameters():
         if value.requires_grad:
+            print(key, "Requires Gradient")
             if 'bias' in key:
                 bias_params.append(value)
                 bias_param_names.append(key)
@@ -419,7 +420,7 @@ def main():
                 decay_steps_ind += 1
 
             training_stats.IterTic()
-            optimizer.zero_grad()
+            # optimizer.zero_grad()
             for inner_iter in range(args.iter_size):
                 try:
                     input_data = next(dataiterator)
@@ -438,7 +439,7 @@ def main():
 
                 # No Backward pass, we're doing validation
                 # loss.backward()
-            optimizer.step()
+            # optimizer.step()
             training_stats.IterToc()
 
             training_stats.LogIterStats(step, lr)
