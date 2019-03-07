@@ -936,6 +936,10 @@ __C.GROUP_NORM.EPSILON = 1e-5
 # Number of GPUs to use (applies to both training and testing)
 __C.NUM_GPUS = 1
 
+# Plane to Use ([0,1,2] -> [u,v,y])
+__C.PLANE = 2
+
+
 # The mapping from image coordinates to feature map coordinates might cause
 # some boxes that are distinct in image space to become identical in feature
 # coordinates. If DEDUP_BOXES > 0, then DEDUP_BOXES is used as the scale factor

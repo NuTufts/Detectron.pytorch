@@ -96,7 +96,7 @@ class LArCVDataset(object):
         self.category_to_id_map = dict(zip(categories, category_ids))
         self.classes = ['__background__'] + categories
         self.num_classes = len(self.classes)
-        self.plane =2
+        self.plane = cfg.PLANE
         self.keypoints = None
         if self.name == 'particle_physics_valid':
             print("Validation Set")
@@ -217,7 +217,7 @@ class LArCVDataset(object):
                 "image":                    _files[0],
                 "date_captured":             'Tomorrow',
                 "license":                  3,
-                "plane":                    2,
+                "plane":                    self.plane,
                 "chain_adc":                image2d_adc_crop_chain,
                 "chain_cluster":            clustermask_cluster_crop_chain,
                 }
@@ -367,7 +367,7 @@ class LArCVDataset(object):
                             #index is odd, y coord
                             this_poly.append(float(contour[i]+mask_box_arr[1]))
                         else:
-                            #index isn't even or oddself.
+                            #index isn't even or odd.
                             assert 1==2
                     polygon_list.append(this_poly)
             # if len(polygon_list) == 0:

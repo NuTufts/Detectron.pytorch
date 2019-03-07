@@ -133,6 +133,9 @@ def main():
     else:
         raise ValueError('Unexpected dataset name: {}'.format(args.dataset))
 
+    plane = cfg.PLANE
+    print("Plane set to: ", plane)
+
     print('load cfg from file: {}'.format(args.cfg_file))
     cfg_from_file(args.cfg_file)
 
@@ -279,7 +282,7 @@ def main():
             image2d_adc_crop_chain.GetEntry(i)
             entry_image2dadc_crop_data = image2d_adc_crop_chain.image2d_adc_branch
             image2dadc_crop_array = entry_image2dadc_crop_data.as_vector()
-            im_2d = larcv.as_ndarray(image2dadc_crop_array[2])
+            im_2d = larcv.as_ndarray(image2dadc_crop_array[plane])
             height, width = im_2d.shape
             im = np.zeros ((height,width,3))
             im_visualize = np.zeros ((height,width,3), 'float32')
@@ -288,10 +291,10 @@ def main():
             clustermask_cluster_crop_chain.GetEntry(i)
             entry_mask_crop_data = clustermask_cluster_crop_chain.clustermask_masks_branch
             mask_crop_array =  entry_mask_crop_data.as_vector()
-            gt_masks = np.zeros((512,832,len(mask_crop_array[2])))
-            gt_boxes = np.empty((len(mask_crop_array[2]),5))
+            gt_masks = np.zeros((512,832,len(mask_crop_array[plane])))
+            gt_boxes = np.empty((len(mask_crop_array[plane]),5))
 
-            for index, mask in enumerate(mask_crop_array[2]):
+            for index, mask in enumerate(mask_crop_array[plane]):
                 bbox = larcv.as_ndarray_bbox(mask)
                 mask_in_bbox = larcv.as_ndarray_mask(mask)
                 bbox[2] = bbox[2]+bbox[0]
