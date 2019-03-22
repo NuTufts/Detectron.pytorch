@@ -176,7 +176,7 @@ def main():
         image2d_adc_crop_chain.GetEntry(i)
         entry_image2dadc_crop_data = image2d_adc_crop_chain.image2d_wire_branch
         image2dadc_crop_array = entry_image2dadc_crop_data.as_vector()
-        im_2d = larcv.as_ndarray(image2dadc_crop_array[2])
+        im_2d = larcv.as_ndarray(image2dadc_crop_array[cfg.PLANE])
         height, width = im_2d.shape
         im = np.zeros ((height,width,3))
         im_visualize = np.zeros ((height,width,3), 'float32')
@@ -218,7 +218,7 @@ def main():
             dataset=dataset,
             box_alpha=0.3,
             show_class=True,
-            thresh=0.5,
+            thresh=0.7,
             kp_thresh=2,
             no_adc=False,
             entry=i

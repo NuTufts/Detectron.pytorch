@@ -202,8 +202,10 @@ class LArCVDataset(object):
         assert image2d_adc_crop_chain.GetEntries() == clustermask_cluster_crop_chain.GetEntries()
 
         self.NUM_IMAGES=clustermask_cluster_crop_chain.GetEntries()
-        # if self.validation ==True:
-            # self.NUM_IMAGES=2
+        self.NUM_IMAGES=77000
+        # self.NUM_IMAGES=clustermask_cluster_crop_chain.GetEntries() - 154000
+
+
         self.SPECIFIC_IMAGE_START=0
 
 
@@ -211,11 +213,11 @@ class LArCVDataset(object):
             dict = {
                 "height":                   512,
                 "width":                    832,
-                "coco_url":                 'https://bellenot.web.cern.ch/bellenot/images/logo_full-plus-text-hor2.png',
-                "flickr_url":               'https://bellenot.web.cern.ch/bellenot/images/logo_full-plus-text-hor2.png',
+                # "coco_url":                 'https://bellenot.web.cern.ch/bellenot/images/logo_full-plus-text-hor2.png',
+                # "flickr_url":               'https://bellenot.web.cern.ch/bellenot/images/logo_full-plus-text-hor2.png',
                 "id":                       entry,
                 "image":                    _files[0],
-                "date_captured":             'Tomorrow',
+                # "date_captured":             'Tomorrow',
                 "license":                  3,
                 "plane":                    self.plane,
                 "chain_adc":                image2d_adc_crop_chain,
@@ -230,7 +232,7 @@ class LArCVDataset(object):
 
 
         # Include ground-truth object annotations
-        cache_filepath = os.path.join(self.cache_path, self.name+'_gt_roidb.pkl')
+        cache_filepath = os.path.join(self.cache_path, self.name+'_gt_roidb_plane_'+str(self.plane)+'.pkl')
         if os.path.exists(cache_filepath) and not cfg.DEBUG:
             self.debug_timer.tic()
             roidb = [{"dataset":                   self,} for ind in range(self.NUM_IMAGES)]
@@ -255,10 +257,12 @@ class LArCVDataset(object):
             count =0
             max_iou = np.zeros((0), np.float)
             all_ious = np.zeros((0), np.float)
+            count_prints = 0
             for entry in roidb:
                 count = count+1
                 if count%int(print_cond)==0:
-                    print(count, " Complete took time: ", self.debug_timer.toc(average=False))
+                    count_prints =count_prints + 1
+                    print(count_prints*update_every_percent, "% ",  count, " Complete took time: ", self.debug_timer.toc(average=False))
                 self._add_gt_annotations(entry, clustermask_cluster_crop_chain)
 
 
@@ -279,7 +283,7 @@ class LArCVDataset(object):
         t0 = time.time()
         thresh = cfg.TRAIN.GT_IOU_THRESH
         orig_length = len(roidb)
-        if thresh > 0.0:
+        if thresh >= 0.0:
             roidb = _cull_roidb_iou(roidb, thresh)
         t1 = time.time()
         total = t1-t0
@@ -496,6 +500,7 @@ class LArCVDataset(object):
             # entry['is_crowd'] = np.append(entry['is_crowd'], is_crowd)
             # entry['box_to_gt_ind_map'] = np.append(entry['box_to_gt_ind_map'], box_to_gt_ind_map
             entry['flipped'] = flipped
+            assert plane == cfg.PLANE
             entry['plane'] = plane
             entry['id'] = id
             entry['image'] = image

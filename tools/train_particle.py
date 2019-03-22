@@ -149,6 +149,9 @@ def main():
     args = parse_args()
     print('Called with args:')
     print(args)
+    print("Versions:")
+    print("TORCH (torch.__version__): ", torch.__version__)
+    print("CUDA (torch.version.cuda): ", torch.version.cuda)
 
     if not torch.cuda.is_available():
         sys.exit("Need a CUDA device to run the code.")
@@ -264,7 +267,6 @@ def main():
         collate_fn=collate_minibatch)
     dataiterator = iter(dataloader)
     ### Model ###
-    assert 1 ==2
     maskRCNN = Generalized_RCNN()
 
     if cfg.CUDA:
