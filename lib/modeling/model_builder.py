@@ -156,6 +156,9 @@ class Generalized_RCNN(nn.Module):
                 p.requires_grad = False
 
     def forward(self, data, im_info, roidb=None, **rpn_kwargs):
+
+
+
         if cfg.PYTORCH_VERSION_LESS_THAN_040:
             return self._forward(data, im_info, roidb, **rpn_kwargs)
         else:
@@ -171,7 +174,9 @@ class Generalized_RCNN(nn.Module):
             roidb = list(map(lambda x: blob_utils.deserialize(x)[0], roidb))
 
         device_id = im_data.get_device()
-
+        print()
+        print("device_id: ", device_id)
+        print()
         return_dict = {}  # A dict to collect return variables
 
         blob_conv = self.Conv_Body(im_data)

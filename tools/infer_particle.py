@@ -204,16 +204,25 @@ def main():
 
         timers = defaultdict(Timer)
 
-        cls_boxes, cls_segms, cls_keyps = im_detect_all(maskRCNN, im, timers=timers)
-
-        im_name, _ = os.path.splitext(os.path.basename(file_list[0]))
-        im_name = im_name+str(i)
+        cls_boxes, cls_segms, cls_keyps, round_boxes = im_detect_all(maskRCNN, im, timers=timers, use_polygon=False)
+        assert len(cls_boxes) == len(cls_segms)
+        assert len(cls_boxes) == len(round_boxes)
+        im_vis2 = np.zeros ((height,width,3), 'float32')
+        for cls in range(len(cls_boxes)):
+            for roi in range(len(cls_boxes[cls])):
+                if cls_boxes[cls][roi][4] > 0.7:
+                    #code to adjust im_visualize
+                    add_x = round_boxes[cls][roi][0]
+                    add_y = round_boxes[cls][roi][1]
+                    segm_coo = cls_segms[cls][roi].tocoo()
+                    for i,j,v in zip(segm_coo.row, segm_coo.col, segm_coo.data):
+                        im_vis2[add_y + i][add_x + j][:] = 1.0*roi
         vis_utils.vis_one_image(
-            im_visualize[:, :, ::-1],  # BGR -> RGB for visualization
-            im_name,
+            im_vis2[:, :, ::-1],  # BGR -> RGB for visualization
+            "no_polygon",
             args.output_dir,
             cls_boxes,
-            cls_segms,
+            None,
             cls_keyps,
             dataset=dataset,
             box_alpha=0.3,
@@ -223,6 +232,25 @@ def main():
             no_adc=False,
             entry=i
         )
+
+
+        # im_name, _ = os.path.splitext(os.path.basename(file_list[0]))
+        # im_name = im_name+str(i)
+        # vis_utils.vis_one_image(
+        #     im_visualize[:, :, ::-1],  # BGR -> RGB for visualization
+        #     im_name,
+        #     args.output_dir,
+        #     cls_boxes,
+        #     cls_segms,
+        #     cls_keyps,
+        #     dataset=dataset,
+        #     box_alpha=0.3,
+        #     show_class=True,
+        #     thresh=0.7,
+        #     kp_thresh=2,
+        #     no_adc=False,
+        #     entry=i
+        # )
 
     if args.merge_pdfs and num_images > 1:
         merge_out_path = '{}/results.pdf'.format(args.output_dir)
