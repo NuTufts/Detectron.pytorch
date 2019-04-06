@@ -230,7 +230,7 @@ def mask_rcnn_losses(masks_pred, masks_int32):
     # print()
     # print()
     loss = F.binary_cross_entropy_with_logits(
-        masks_pred.view(n_rois, -1), masks_gt, weight, size_average=False)
+        masks_pred.view(n_rois, -1), masks_gt, weight, reduction='sum')
     # print()
     # print('loss is type: ', type(loss))
     # print('loss shape is: ', loss.shape)

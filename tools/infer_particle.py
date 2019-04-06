@@ -140,7 +140,9 @@ def main():
     if args.load_ckpt:
         load_name = args.load_ckpt
         print("loading checkpoint %s" % (load_name))
-        checkpoint = torch.load(load_name, map_location=lambda storage, loc: storage)
+        # checkpoint = torch.load(load_name, map_location=lambda storage, loc: storage)
+        checkpoint = torch.load(load_name, map_location={'cpu':'cuda:1','cuda:0':'cuda:1','cuda:1':'cuda:1','cuda:2':'cuda:1'})
+
         net_utils.load_ckpt(maskRCNN, checkpoint['model'])
 
     if args.load_detectron:
@@ -148,7 +150,7 @@ def main():
         load_detectron_weight(maskRCNN, args.load_detectron)
 
     maskRCNN = mynn.DataParallel(maskRCNN, cpu_keywords=['im_info', 'roidb'],
-                                 minibatch=True, device_ids=[0])  # only support single GPU
+                                 minibatch=True, device_ids=[1], output_device=1)  # only support single GPU
 
     maskRCNN.eval()
 
@@ -205,6 +207,14 @@ def main():
         timers = defaultdict(Timer)
 
         cls_boxes, cls_segms, cls_keyps, round_boxes = im_detect_all(maskRCNN, im, timers=timers, use_polygon=False)
+        print(len(cls_boxes[1]))
+        for score_idx in range(len(cls_boxes[1])):
+            if cls_boxes[1][score_idx][4] > 0.7:
+                print("Score above threshold!")
+            else:
+                print(cls_boxes[1][score_idx][4])
+        print(len(cls_segms[1]))
+        print(len(round_boxes[1]))
         assert len(cls_boxes) == len(cls_segms)
         assert len(cls_boxes) == len(round_boxes)
         im_vis2 = np.zeros ((height,width,3), 'float32')

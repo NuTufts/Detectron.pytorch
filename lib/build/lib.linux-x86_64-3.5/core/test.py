@@ -50,12 +50,13 @@ import utils.keypoints as keypoint_utils
 import datasets.dummy_datasets as datasets
 import utils.vis as vis_utils
 import cv2
+from scipy import sparse
 
 #to purity efficiency
 from datasets.larcvdataset import IoU
 
 
-def im_detect_all(model, im, box_proposals=None, timers=None):
+def im_detect_all(model, im, box_proposals=None, timers=None, use_polygon=True):
     """Process the outputs of model for testing
     Args:
       model: the network module
@@ -65,6 +66,7 @@ def im_detect_all(model, im, box_proposals=None, timers=None):
       num_boxes: Pytorch variable. Input batch to the model.
       args: arguments from command line.
       timer: record the cost of time for different steps
+      use_polygon: should the output segmentation masks be sparse matrices or encoded polygons
     The rest of inputs are of type pytorch Variables and either input to or output from the model.
     """
     if timers is None:
@@ -111,7 +113,10 @@ def im_detect_all(model, im, box_proposals=None, timers=None):
         # for index in range(len(cls_boxes)):
         #     for index2 in range(len(cls_boxes[index])):
         #         print(cls_boxes[index][index2])
-        cls_segms = segm_results(cls_boxes, masks, boxes, im.shape[0], im.shape[1])
+        if use_polygon:
+            cls_segms = segm_results(cls_boxes, masks, boxes, im.shape[0], im.shape[1])
+        else:
+            cls_segms, round_boxes = segm_results(cls_boxes, masks, boxes, im.shape[0], im.shape[1], polygon=use_polygon)
         timers['misc_mask'].toc()
     else:
         cls_segms = None
@@ -129,9 +134,10 @@ def im_detect_all(model, im, box_proposals=None, timers=None):
         timers['misc_keypoints'].toc()
     else:
         cls_keyps = None
-
-    return cls_boxes, cls_segms, cls_keyps
-
+    if use_polygon:
+        return cls_boxes, cls_segms, cls_keyps
+    else:
+        return cls_boxes, cls_segms, cls_keyps, round_boxes
 
 def im_conv_body_only(model, im, target_scale, target_max_size):
     inputs, im_scale = _get_blobs(im, None, target_scale, target_max_size)
@@ -149,7 +155,6 @@ def im_conv_body_only(model, im, target_scale, target_max_size):
 
 def im_detect_bbox(model, im, target_scale, target_max_size, boxes=None):
     """Prepare the bbox for testing"""
-
     inputs, im_scale = _get_blobs(im, boxes, target_scale, target_max_size)
 
     if cfg.DEDUP_BOXES > 0 and not cfg.MODEL.FASTER_RCNN:
@@ -184,10 +189,7 @@ def im_detect_bbox(model, im, target_scale, target_max_size, boxes=None):
     # print('------------------')
     # print()
     return_dict = model(**inputs)
-    # print()
-    # print('------------------')
-    # print("After Return Dict")
-    # print()
+
     if cfg.MODEL.FASTER_RCNN:
         rois = return_dict['rois'].data.cpu().numpy()
 
@@ -884,10 +886,13 @@ def box_results_with_nms_and_limit(scores, boxes):  # NOTE: support single-batch
     return scores, boxes, cls_boxes
 
 
-def segm_results(cls_boxes, masks, ref_boxes, im_h, im_w):
+def segm_results(cls_boxes, masks, ref_boxes, im_h, im_w, polygon=True):
     num_classes = cfg.MODEL.NUM_CLASSES
     cls_segms = [[] for _ in range(num_classes)]
+    round_boxes =[[] for _ in range(num_classes)]
     mask_ind = 0
+
+
     # To work around an issue with cv2.resize (it seems to automatically pad
     # with repeated border values), we manually zero-pad the masks by 1 pixel
     # prior to resizing back to the original image resolution. This prevents
@@ -898,10 +903,10 @@ def segm_results(cls_boxes, masks, ref_boxes, im_h, im_w):
     ref_boxes = box_utils.expand_boxes(ref_boxes, scale)
     ref_boxes = ref_boxes.astype(np.int32)
     padded_mask = np.zeros((M + 2, M + 2), dtype=np.float32)
-
     # skip j = 0, because it's the background class
     for j in range(1, num_classes):
         segms = []
+        rboxes= []
         for _ in range(cls_boxes[j].shape[0]):
             if cfg.MRCNN.CLS_SPECIFIC_MASK:
                 padded_mask[1:-1, 1:-1] = masks[mask_ind, j, :, :]
@@ -923,23 +928,35 @@ def segm_results(cls_boxes, masks, ref_boxes, im_h, im_w):
             y_0 = max(ref_box[1], 0)
             y_1 = min(ref_box[3] + 1, im_h)
 
-            im_mask[y_0:y_1, x_0:x_1] = mask[
-                (y_0 - ref_box[1]):(y_1 - ref_box[1]), (x_0 - ref_box[0]):(x_1 - ref_box[0])]
+
 
             # Get RLE encoding used by the COCO evaluation API
-            rle = mask_util.encode(np.array(im_mask[:, :, np.newaxis], order='F'))[0]
-            # For dumping to json, need to decode the byte string.
-            # https://github.com/cocodataset/cocoapi/issues/70
-            rle['counts'] = rle['counts'].decode('ascii')
-            segms.append(rle)
-
+            if polygon:
+                im_mask[y_0:y_1, x_0:x_1] = mask[
+                    (y_0 - ref_box[1]):(y_1 - ref_box[1]), (x_0 - ref_box[0]):(x_1 - ref_box[0])]
+                rle = mask_util.encode(np.array(im_mask[:, :, np.newaxis], order='F'))[0]
+                # For dumping to json, need to decode the byte string.
+                # https://github.com/cocodataset/cocoapi/issues/70
+                rle['counts'] = rle['counts'].decode('ascii')
+                segms.append(rle)
+            else:
+                sparse_mask = sparse.csr_matrix(
+                    mask[
+                        (y_0 - ref_box[1]):(y_1 - ref_box[1]),
+                        (x_0 - ref_box[0]):(x_1 - ref_box[0])
+                        ]
+                        )
+                segms.append(sparse_mask)
+                rboxes.append(ref_box)
             mask_ind += 1
 
         cls_segms[j] = segms
-
+        round_boxes[j] = rboxes
     assert mask_ind == masks.shape[0]
-    return cls_segms
-
+    if polygon:
+        return cls_segms
+    else:
+        return cls_segms, round_boxes
 
 def keypoint_results(cls_boxes, pred_heatmaps, ref_boxes):
     num_classes = cfg.MODEL.NUM_CLASSES
