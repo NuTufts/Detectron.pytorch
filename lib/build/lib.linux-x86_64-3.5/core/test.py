@@ -156,7 +156,6 @@ def im_conv_body_only(model, im, target_scale, target_max_size):
 def im_detect_bbox(model, im, target_scale, target_max_size, boxes=None):
     """Prepare the bbox for testing"""
     inputs, im_scale = _get_blobs(im, boxes, target_scale, target_max_size)
-
     if cfg.DEDUP_BOXES > 0 and not cfg.MODEL.FASTER_RCNN:
         v = np.array([1, 1e3, 1e6, 1e9, 1e12])
         hashes = np.round(inputs['rois'] * cfg.DEDUP_BOXES).dot(v)
@@ -177,7 +176,6 @@ def im_detect_bbox(model, im, target_scale, target_max_size, boxes=None):
         inputs['data'] = [torch.from_numpy(inputs['data'])]
         inputs['im_info'] = [torch.from_numpy(inputs['im_info'])]
 
-
     # torch.set_printoptions(profile="full")
     # torch.set_printoptions(precision=2)
     # print('start')
@@ -189,7 +187,6 @@ def im_detect_bbox(model, im, target_scale, target_max_size, boxes=None):
     # print('------------------')
     # print()
     return_dict = model(**inputs)
-
     if cfg.MODEL.FASTER_RCNN:
         rois = return_dict['rois'].data.cpu().numpy()
 

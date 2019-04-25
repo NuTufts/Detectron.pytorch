@@ -174,9 +174,7 @@ class Generalized_RCNN(nn.Module):
             roidb = list(map(lambda x: blob_utils.deserialize(x)[0], roidb))
 
         device_id = im_data.get_device()
-        print()
-        print("device_id: ", device_id)
-        print()
+
         return_dict = {}  # A dict to collect return variables
 
         blob_conv = self.Conv_Body(im_data)
@@ -270,7 +268,6 @@ class Generalized_RCNN(nn.Module):
                                 np.empty((0,5))
                                 ]
                     # print(type(boxes))
-                    print(len(rpn_ret['mask_rois']))
                     for box in range(len(rpn_ret['mask_rois'])):
                         if box%10==0:
                             print(box)
