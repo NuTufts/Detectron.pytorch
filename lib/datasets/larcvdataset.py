@@ -49,7 +49,7 @@ class LArCVDataset(object):
 
     def __init__(self, name):
 
-        from larcv.dataloader2 import larcv_threadio
+        # from larcv.dataloader2 import larcv_threadio
         assert name in DATASETS.keys(), \
             'Unknown dataset name: {}'.format(name)
         assert os.path.exists(DATASETS[name][IM_DIR]), \
@@ -186,8 +186,8 @@ class LArCVDataset(object):
         ###Try making my own Roidb using root file
         ###
         roidb = []
-        # _files = ['/home/jmills/workdir/mask-rcnn.pytorch/data/particle_physics_train/root_files/croppedmask_lf_001.root']
-        _files = ['/media/disk1/jmills/crop_mask_train/crop_train1.root']
+        _files = ['/home/jmills/workdir/sparse_mask/smask-rcnn/test_sparse.root']
+        # _files = ['/media/disk1/jmills/crop_mask_train/crop_train1.root']
         if self.validation == True:
             _files = ['/media/disk1/jmills/crop_mask_valid/crop_valid.root']
         # _f = ROOT.TFile(_files[0])
@@ -202,7 +202,7 @@ class LArCVDataset(object):
         assert image2d_adc_crop_chain.GetEntries() == clustermask_cluster_crop_chain.GetEntries()
 
         self.NUM_IMAGES=clustermask_cluster_crop_chain.GetEntries()
-        self.NUM_IMAGES=10
+        # self.NUM_IMAGES=10
         # self.NUM_IMAGES=clustermask_cluster_crop_chain.GetEntries() - 154000
 
 
