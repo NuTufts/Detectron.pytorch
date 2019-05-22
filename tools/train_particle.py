@@ -146,6 +146,7 @@ def save_ckpt(output_dir, args, step, train_size, model, optimizer):
 def main():
     """Main function"""
 
+
     args = parse_args()
     print('Called with args:')
     print(args)
@@ -161,13 +162,8 @@ def main():
     else:
         raise ValueError("Need Cuda device to run !")
 
-    if args.dataset == "coco2017":
-        cfg.TRAIN.DATASETS = ('coco_2017_train',)
-        cfg.MODEL.NUM_CLASSES = 81
-    elif args.dataset == "keypoints_coco2017":
-        cfg.TRAIN.DATASETS = ('keypoints_coco_2017_train',)
-        cfg.MODEL.NUM_CLASSES = 2
-    elif args.dataset == "particle":
+
+    if args.dataset == "particle":
         cfg.TRAIN.DATASETS = ('particle_physics_train')
         cfg.MODEL.NUM_CLASSES = 7
         # 0=Muon (cosmic), 1=Neutron, 2=Proton, 3=Electron, 4=neutrino, 5=Other
@@ -351,6 +347,32 @@ def main():
 
     maskRCNN = mynn.DataParallel(maskRCNN, cpu_keywords=['im_info', 'roidb'],
                                  minibatch=True)
+    maskRCNN = maskRCNN.to(torch.device(cfg.MODEL.DEVICE))
+    # Sample tensor moving code
+    # print("00000000000000000000")
+    # print(maskRCNN.device)
+    # print("00000000000000000000")
+    # tensor = torch.tensor([[1., -1.], [1., -1.]])
+    # if not tensor.is_cuda:
+    #     print("Tensor Device is on cpu" )
+    # else:
+    #     print("Tensor device is on gpu")
+    # tensor = tensor.to(torch.device(cfg.MODEL.DEVICE))
+    # print("Tensor Device:", tensor.get_device())
+    # dev = tensor.get_device()
+    # tensor = tensor.to(torch.device('cuda:1'))
+    # print("Tensor Device:", tensor.get_device())
+    # tensor = tensor.to(torch.device(dev))
+    # print("Tensor Device:", tensor.get_device())
+    #
+    # # tensor = tensor.to(torch.device('cpu'))
+    # if not tensor.is_cuda:
+    #     print("Tensor Device is on cpu" )
+    # else:
+    #     print("Tensor device is on gpu")
+    #
+    # print("00000000000000000000")
+
 
     ### Training Setups ###
     args.run_name = misc_utils.get_run_name() + '_step'

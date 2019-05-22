@@ -5,9 +5,14 @@ MODEL:
   FASTER_RCNN: True
   MASK_ON: True
   LOAD_IMAGENET_PRETRAINED_WEIGHTS: False
+  DEVICE: 'cuda:0'
+  # Options include 'cpu', 'cuda:0'
+  # tensor.to(torch.device(DEVICE))
+  # get_device() returns the torch.device a tensor is on, but make sure to check
+  # if the tensor is on a gpu first with tensor.is_cuda false -> cpu 
 RESNETS:
-  # IMAGENET_PRETRAINED_WEIGHTS: 'data/pretrained_model/resnet50_caffe.pth'
-  IMAGENET_PRETRAINED_WEIGHTS: 'blargflargmcbard'
+  IMAGENET_PRETRAINED_WEIGHTS: 'data/pretrained_model/resnet50_caffe.pth'
+  # IMAGENET_PRETRAINED_WEIGHTS: 'blargflargmcbard'
   FREEZE_AT: 0
 
 NUM_GPUS: 1

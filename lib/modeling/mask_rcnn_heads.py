@@ -77,23 +77,7 @@ class mask_rcnn_outputs(nn.Module):
         return x
 
 
-# def mask_rcnn_losses(mask_pred, rois_mask, rois_label, weight):
-#     n_rois, n_classes, _, _ = mask_pred.size()
-#     rois_mask_label = rois_label[weight.data.nonzero().view(-1)]
-#     # select pred mask corresponding to gt label
-#     if cfg.MRCNN.MEMORY_EFFICIENT_LOSS:  # About 200~300 MB less. Not really sure how.
-#         mask_pred_select = Variable(
-#             mask_pred.data.new(n_rois, cfg.MRCNN.RESOLUTION,
-#                                cfg.MRCNN.RESOLUTION))
-#         for n, l in enumerate(rois_mask_label.data):
-#             mask_pred_select[n] = mask_pred[n, l]
-#     else:
-#         inds = rois_mask_label.data + \
-#           torch.arange(0, n_rois * n_classes, n_classes).long().cuda(rois_mask_label.data.get_device())
-#         mask_pred_select = mask_pred.view(-1, cfg.MRCNN.RESOLUTION,
-#                                           cfg.MRCNN.RESOLUTION)[inds]
-#     loss = F.binary_cross_entropy_with_logits(mask_pred_select, rois_mask)
-#     return loss
+
 
 
 def mask_rcnn_losses(masks_pred, masks_int32):
@@ -103,8 +87,12 @@ def mask_rcnn_losses(masks_pred, masks_int32):
     # print('Shape of pred: ', masks_pred.shape)
 
     n_rois, n_classes, _, _ = masks_pred.size()
-    device_id = masks_pred.get_device()
-    masks_gt = Variable(torch.from_numpy(masks_int32.astype('float32'))).cuda(device_id)
+    device_id = ""
+    if masks_pred.is_cuda:
+        device_id = masks_pred.get_device()
+    else:
+        device_id = 'cpu'
+    masks_gt = Variable(torch.from_numpy(masks_int32.astype('float32'))).to(torch.device(device_id))
     el1 = float(np.amax(masks_int32))
     el2 = float(torch.max(masks_gt))
 
@@ -450,7 +438,13 @@ class mask_rcnn_fcn_head_v0upshare(nn.Module):
             # batch (roi) has corresponding mask groundtruth, namely having positive values in
             # roi_has_mask_int32.
             inds = np.nonzero(roi_has_mask_int32 > 0)[0]
-            inds = Variable(torch.from_numpy(inds)).cuda(x.get_device())
+            device_id = ''
+            if x.is_cuda:
+                device_id = x.get_device()
+            else:
+                device_id = 'cpu'
+
+            inds = Variable(torch.from_numpy(inds)).to(torch.device(device_id))
             # print("feat, before upconv",x.shape)
             x = x[inds]
             # print("feat, upconv: ", x.shape)

@@ -408,6 +408,9 @@ __C.TEST.BBOX_VOTE.SCORING_METHOD_BETA = 1.0
 # ---------------------------------------------------------------------------- #
 __C.MODEL = AttrDict()
 
+#The device you want to train on (this is development code)
+__C.MODEL.DEVICE = ''
+
 # The type of model to use
 # The string must match a function in the modeling.model_builder module
 # (e.g., 'generalized_rcnn', 'mask_rcnn', ...)

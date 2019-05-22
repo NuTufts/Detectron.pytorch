@@ -91,10 +91,14 @@ class keypoint_outputs(nn.Module):
 def keypoint_losses(kps_pred, keypoint_locations_int32, keypoint_weights,
                     keypoint_loss_normalizer=None):
     """Mask R-CNN keypoint specific losses."""
-    device_id = kps_pred.get_device()
+    device_id = ''
+    if kps_pred.is_cuda:
+        device_id = kps_pred.get_device()
+    else:
+        device_id = 'cpu'
     kps_target = Variable(torch.from_numpy(
-        keypoint_locations_int32.astype('int64'))).cuda(device_id)
-    keypoint_weights = Variable(torch.from_numpy(keypoint_weights)).cuda(device_id)
+        keypoint_locations_int32.astype('int64'))).to(torch.device(device_id))
+    keypoint_weights = Variable(torch.from_numpy(keypoint_weights)).to(torch.device(device_id))
     # Softmax across **space** (woahh....space!)
     # Note: this is not what is commonly called "spatial softmax"
     # (i.e., softmax applied along the channel dimension at each spatial
