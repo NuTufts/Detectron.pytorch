@@ -186,23 +186,25 @@ class LArCVDataset(object):
         ###Try making my own Roidb using root file
         ###
         roidb = []
-        _files = ['/home/jmills/workdir/sparse_mask/smask-rcnn/test_sparse.root']
-        # _files = ['/media/disk1/jmills/crop_mask_train/crop_train1.root']
+        # _files = ['/home/jmills/workdir/sparse_mask/smask-rcnn/sparse_crop_train1_ev.root']
+        _files = ['/media/disk1/jmills/crop_mask_train/crop_train1.root']
         if self.validation == True:
             _files = ['/media/disk1/jmills/crop_mask_valid/crop_valid.root']
         # _f = ROOT.TFile(_files[0])
+        image2d_adc_crop_chain = ROOT.TChain("sparseimage_adc_sparse_tree")
         image2d_adc_crop_chain = ROOT.TChain("image2d_adc_tree")
+
         clustermask_cluster_crop_chain = ROOT.TChain("clustermask_masks_tree")
         # print()
         for _file in _files: image2d_adc_crop_chain.AddFile(_file)
-        # print ('Found', image2d_adc_crop_chain.GetEntries(), 'entries in image2d adc values')
+        print ('Found', image2d_adc_crop_chain.GetEntries(), 'entries in image2d adc values')
         for _file in _files: clustermask_cluster_crop_chain.AddFile(_file)
-        # print ('Found', clustermask_cluster_crop_chain.GetEntries(), 'entries in clustermask clusters cropped ')
-        # print()
+        print ('Found', clustermask_cluster_crop_chain.GetEntries(), 'entries in clustermask clusters cropped ')
+        print()
         assert image2d_adc_crop_chain.GetEntries() == clustermask_cluster_crop_chain.GetEntries()
 
         self.NUM_IMAGES=clustermask_cluster_crop_chain.GetEntries()
-        # self.NUM_IMAGES=10
+        self.NUM_IMAGES=10
         # self.NUM_IMAGES=clustermask_cluster_crop_chain.GetEntries() - 154000
 
 
@@ -350,6 +352,10 @@ class LArCVDataset(object):
             #         p for p in obj['segmentation'] if len(p) >= 6
             #     ]
             obj = {}
+            print(mask.meta.width(), "width")
+            print(mask.meta.height(), "height")
+            print(mask.points_v.at(0).x, mask.points_v.at(0).y, "xy")
+
             mask_bin_arr = larcv.as_ndarray_mask(mask)
             mask_box_arr = larcv.as_ndarray_bbox(mask)
             new_mask = mask_bin_arr.astype(np.uint8).copy()

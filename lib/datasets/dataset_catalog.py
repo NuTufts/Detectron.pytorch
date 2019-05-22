@@ -40,7 +40,7 @@ RAW_DIR = 'raw_dir'
 DATASETS = {
     'particle_physics_train': {
         IM_DIR:
-            _DATA_DIR + '/particle_physics_train/root_files/',
+            _DATA_DIR + '/particle_physics_train/',
         ANN_FN:
             _DATA_DIR + '/particle_physics_train/annotations/instances_train2014.json',
         IM_PREFIX:
@@ -48,10 +48,10 @@ DATASETS = {
     },
     'particle_physics_valid': {
         IM_DIR:
-            _DATA_DIR + '/particle_physics_valid/root_files/',
+            _DATA_DIR + '/particle_physics_valid/',
         # use filtered validation as there is an issue converting contours
         ANN_FN:
-            _DATA_DIR + '//particle_physics_valid/annotations/instances_train2014.json',
+            _DATA_DIR + '/particle_physics_valid/annotations/instances_train2014.json',
         IM_PREFIX:
             'croppedmask_lf_'
     },
