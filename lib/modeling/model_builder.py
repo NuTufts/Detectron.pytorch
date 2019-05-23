@@ -178,6 +178,9 @@ class Generalized_RCNN(nn.Module):
         else:
             device_id = 'cpu'
         return_dict = {}  # A dict to collect return variables
+        print(im_data.is_cuda, "im_data.is_cuda")
+        if im_data.is_cuda:
+            print(torch.get_device(im_data)," torch.get_device(im_data)")
 
         blob_conv = self.Conv_Body(im_data)
 

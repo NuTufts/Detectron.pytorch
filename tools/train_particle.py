@@ -157,10 +157,11 @@ def main():
     if not torch.cuda.is_available():
         sys.exit("Need a CUDA device to run the code.")
 
-    if args.cuda or cfg.NUM_GPUS > 0:
-        cfg.CUDA = True
-    else:
-        raise ValueError("Need Cuda device to run !")
+    # if args.cuda:
+    #     cfg.CUDA = True
+    # else:
+    #     cfg.CUDA = False
+        # raise ValueError("Need Cuda device to run !")
 
 
     if args.dataset == "particle":
@@ -265,8 +266,10 @@ def main():
     ### Model ###
     maskRCNN = Generalized_RCNN()
 
-    if cfg.CUDA:
-        maskRCNN.cuda()
+    # if cfg.CUDA:
+    maskRCNN.to(torch.device(cfg.MODEL.DEVICE))
+    # else:
+    #     maskRCNN.cpu()
 
     ### Optimizer ###
     gn_param_nameset = set()
@@ -345,9 +348,18 @@ def main():
 
     lr = optimizer.param_groups[0]['lr']  # lr of non-bias parameters, for commmand line outputs.
 
-    maskRCNN = mynn.DataParallel(maskRCNN, cpu_keywords=['im_info', 'roidb'],
-                                 minibatch=True)
+    # maskRCNN = mynn.DataParallel(maskRCNN, cpu_keywords=['im_info', 'roidb'],
+    #                              minibatch=True ) # cfg_device=cfg.MODEL.DEVICE
+
+    maskRCNN = mynn.DataSingular(maskRCNN, cpu_keywords=['im_info', 'roidb'],
+                                 minibatch=True , device_id=[cfg.MODEL.DEVICE]) # 
+
+    print(maskRCNN.device_id , "Dataparallel device_ids2")
+
     maskRCNN = maskRCNN.to(torch.device(cfg.MODEL.DEVICE))
+
+    print(maskRCNN.device_id , "Dataparallel device_ids3")
+
     # Sample tensor moving code
     # print("00000000000000000000")
     # print(maskRCNN.device)

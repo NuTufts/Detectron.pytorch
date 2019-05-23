@@ -143,9 +143,9 @@ def im_conv_body_only(model, im, target_scale, target_max_size):
     inputs, im_scale = _get_blobs(im, None, target_scale, target_max_size)
 
     if cfg.PYTORCH_VERSION_LESS_THAN_040:
-        inputs['data'] = Variable(torch.from_numpy(inputs['data']), volatile=True).cuda()
+        inputs['data'] = Variable(torch.from_numpy(inputs['data']), volatile=True).to(torch.device(cfg.MODEL.DEVICE))
     else:
-        inputs['data'] = torch.from_numpy(inputs['data']).cuda()
+        inputs['data'] = torch.from_numpy(inputs['data']).to(torch.device(cfg.MODEL.DEVICE))
     inputs.pop('im_info')
 
     blob_conv = model.module.convbody_net(**inputs)

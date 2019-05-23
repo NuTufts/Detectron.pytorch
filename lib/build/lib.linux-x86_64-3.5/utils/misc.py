@@ -111,7 +111,12 @@ def load_optimizer_state_dict(optimizer, state_dict):
                                        torch.DoubleTensor, torch.cuda.DoubleTensor,
                                        torch.HalfTensor, torch.cuda.HalfTensor)):  # param.is_floating_point():
                 value = value.type_as(param.data)
-            value = value.cuda(param.get_device()) if param.is_cuda else value.cpu()
+            device_id = ''
+            if param.is_cuda:
+                device_id = param.get_device()
+            else:
+                device_id = 'cpu'
+            value = value.to(torch.device(device_id)) 
             return value
         elif isinstance(value, dict):
             return {k: cast(param, v) for k, v in value.items()}

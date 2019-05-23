@@ -172,9 +172,11 @@ class Generalized_RCNN(nn.Module):
         im_data = data
         if self.training or self.validation:
             roidb = list(map(lambda x: blob_utils.deserialize(x)[0], roidb))
-
-        device_id = im_data.get_device()
-
+        device_id = ''
+        if im_data.is_cuda:
+            device_id = im_data.get_device()
+        else:
+            device_id = 'cpu'
         return_dict = {}  # A dict to collect return variables
 
         blob_conv = self.Conv_Body(im_data)
@@ -399,7 +401,11 @@ class Generalized_RCNN(nn.Module):
 
         if isinstance(blobs_in, list):
             # FPN case: add RoIFeatureTransform to each FPN level
-            device_id = blobs_in[0].get_device()
+            device_id = ''
+            if blobs_in[0].is_cuda:
+                device_id = blobs_in[0].get_device()
+            else:
+                device_id = 'cpu'
             k_max = cfg.FPN.ROI_MAX_LEVEL  # coarsest level of pyramid
             k_min = cfg.FPN.ROI_MIN_LEVEL  # finest level of pyramid
             assert len(blobs_in) == k_max - k_min + 1
@@ -409,7 +415,7 @@ class Generalized_RCNN(nn.Module):
                 sc = spatial_scale[k_max - lvl]  # in reversed order
                 bl_rois = blob_rois + '_fpn' + str(lvl)
                 if len(rpn_ret[bl_rois]):
-                    rois = Variable(torch.from_numpy(rpn_ret[bl_rois])).cuda(device_id)
+                    rois = Variable(torch.from_numpy(rpn_ret[bl_rois])).to(torch.device(device_id))
                     if method == 'RoIPoolF':
                         # Warning!: Not check if implementation matches Detectron
                         xform_out = ROIPool((resolution, resolution), sc)(bl_in, rois)
@@ -424,18 +430,27 @@ class Generalized_RCNN(nn.Module):
             xform_shuffled = torch.cat(bl_out_list, dim=0)
 
             # Unshuffle to match rois from dataloader
-            device_id = xform_shuffled.get_device()
+            device_id = ''
+            if xform_shuffled.is_cuda:
+                device_id = xform_shuffled.get_device()
+            else:
+                device_is = 'cpu'
+
             restore_bl = rpn_ret[blob_rois + '_idx_restore_int32']
             restore_bl = Variable(
-                torch.from_numpy(restore_bl.astype('int64', copy=False))).cuda(device_id)
+                torch.from_numpy(restore_bl.astype('int64', copy=False))).to(torch.device(device_id))
             xform_out = xform_shuffled[restore_bl]
         else:
             # Single feature level
             # rois: holds R regions of interest, each is a 5-tuple
             # (batch_idx, x1, y1, x2, y2) specifying an image batch index and a
             # rectangle (x1, y1, x2, y2)
-            device_id = blobs_in.get_device()
-            rois = Variable(torch.from_numpy(rpn_ret[blob_rois])).cuda(device_id)
+            device_id = ''
+            if blobs_in.is_cuda:
+                device_id = blobs_in.get_device()
+            else:
+                device_id = 'cpu'
+            rois = Variable(torch.from_numpy(rpn_ret[blob_rois])).to(torch.device(device_id))
             if method == 'RoIPoolF':
                 xform_out = ROIPool((resolution, resolution), spatial_scale)(blobs_in, rois)
             elif method == 'RoIAlign':
