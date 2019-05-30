@@ -42,6 +42,7 @@ import numpy as np
 from torch.utils.data import Dataset
 #new imports:
 import cv2
+import time
 
 # OpenCL may be enabled by default in OpenCV3; disable it because it's not
 # thread safe and causes unwanted GPU memory allocations.
@@ -97,8 +98,7 @@ def parse_args():
 def main():
     """main function"""
 
-    if not torch.cuda.is_available():
-        sys.exit("Need a CUDA device to run the code.")
+
 
     args = parse_args()
     print('Called with args:')
@@ -123,14 +123,15 @@ def main():
 
     print('load cfg from file: {}'.format(args.cfg_file))
     cfg_from_file(args.cfg_file)
-
+    if (not torch.cuda.is_available()) and (args.cuda):
+        sys.exit("Need a CUDA device to run the code.")
     if args.set_cfgs is not None:
         cfg_from_list(args.set_cfgs)
 
     assert bool(args.load_ckpt) ^ bool(args.load_detectron), \
         'Exactly one of --load_ckpt and --load_detectron should be specified.'
     cfg.MODEL.LOAD_IMAGENET_PRETRAINED_WEIGHTS = False  # Don't need to load imagenet pretrained weights
-    assert_and_infer_cfg()
+    assert_and_infer_cfg(make_immutable=False)
 
     maskRCNN = Generalized_RCNN()
 
@@ -140,8 +141,10 @@ def main():
     if args.load_ckpt:
         load_name = args.load_ckpt
         print("loading checkpoint %s" % (load_name))
-        # checkpoint = torch.load(load_name, map_location=lambda storage, loc: storage)
-        checkpoint = torch.load(load_name, map_location={'cpu':'cuda:1','cuda:0':'cuda:1','cuda:1':'cuda:1','cuda:2':'cuda:1'})
+        if args.cuda:
+            checkpoint = torch.load(load_name, map_location={'cpu':'cuda:1','cuda:0':'cuda:1','cuda:1':'cuda:1','cuda:2':'cuda:1'})
+        else:
+            checkpoint = torch.load(load_name, map_location={'cpu':'cpu','cuda:0':'cpu','cuda:1':'cpu','cuda:2':'cpu'})
 
         net_utils.load_ckpt(maskRCNN, checkpoint['model'])
 
@@ -149,8 +152,11 @@ def main():
         print("loading detectron weights %s" % args.load_detectron)
         load_detectron_weight(maskRCNN, args.load_detectron)
 
-    maskRCNN = mynn.DataParallel(maskRCNN, cpu_keywords=['im_info', 'roidb'],
-                                 minibatch=True, device_ids=[1], output_device=1)  # only support single GPU
+    # maskRCNN = mynn.DataParallel(maskRCNN, cpu_keywords=['im_info', 'roidb'],
+    #                              minibatch=True, device_ids=[1], output_device=1)  # only support single GPU
+
+    maskRCNN = mynn.DataSingular(maskRCNN, cpu_keywords=['im_info', 'roidb'],
+                                 minibatch=True , device_id=[cfg.MODEL.DEVICE])
 
     maskRCNN.eval()
 
@@ -173,30 +179,42 @@ def main():
     if args.num_images > num_images:
         args.num_images = num_images
     print("Running through:", args.num_images, " images.")
+    # Initialize Timing counts
+    t_total = 0
+    t_load =0
+    t_start_b4_detect = 0
+    t_detection = 0
+    t_after_detect_vis = 0
+    t_vis = 0
     for i in xrange(args.num_images):
+        t_start = time.time()
         print('img', i)
         image2d_adc_crop_chain.GetEntry(i)
         entry_image2dadc_crop_data = image2d_adc_crop_chain.image2d_wire_branch
         image2dadc_crop_array = entry_image2dadc_crop_data.as_vector()
         im_2d = larcv.as_ndarray(image2dadc_crop_array[cfg.PLANE])
         height, width = im_2d.shape
-        im = np.zeros ((height,width,3))
+        # im = np.zeros ((height,width,3))
+        im = np.moveaxis(np.array([np.copy(im_2d),np.copy(im_2d),np.copy(im_2d)]),0,2)
         im_visualize = np.zeros ((height,width,3), 'float32')
+        t_data_loaded = time.time()
         # print('height: ',roidb[i]['height'] , "     dim1: ",len(im_2d))
         # print('width: ',roidb[i]['width'] , "     dim2: ",len(im_2d[0]))
 
-        for dim1 in range(len(im_2d)):
-            for dim2 in range(len(im_2d[0])):
-                value = im_2d[dim1][dim2]
-                im[dim1][dim2][:] = value
-
-                if value > 255:
-                    value2 =250
-                elif value < 0:
-                    value2 =0
-                else:
-                    value2  = value
-                im_visualize[dim1][dim2][:]= value2
+        # for dim1 in range(len(im_2d)):
+        #     for dim2 in range(len(im_2d[0])):
+        #         value = im_2d[dim1][dim2]
+        #         im[dim1][dim2][:] = value
+        #
+        #         if value > 255:
+        #             value2 =250
+        #         elif value < 0:
+        #             value2 =0
+        #         else:
+        #             value2  = value
+        #         im_visualize[dim1][dim2][:]= value2
+        im[im < 0] = 0
+        im[im > 255] = 250
         # np.set_printoptions(threshold=np.inf, precision=0, suppress=True)
         # print('start')
         # print(im[0:100,0:100,0])
@@ -205,19 +223,30 @@ def main():
         assert im is not None
 
         timers = defaultdict(Timer)
-
+        t_before_detect = time.time()
+        # with torch.autograd.profiler.profile(use_cuda=False) as prof:
         cls_boxes, cls_segms, cls_keyps, round_boxes = im_detect_all(maskRCNN, im, timers=timers, use_polygon=False)
-        print(len(cls_boxes[1]))
+        # print(prof)
+
+        print(len(cls_boxes[1]), "Boxes Made with Scores")
+        t_after_detect = time.time()
+        count_above =0
         for score_idx in range(len(cls_boxes[1])):
             if cls_boxes[1][score_idx][4] > 0.7:
                 print("Score above threshold!")
-            else:
-                print(cls_boxes[1][score_idx][4])
-        print(len(cls_segms[1]))
-        print(len(round_boxes[1]))
+                count_above = count_above+1
+            # else:
+            #     print(cls_boxes[1][score_idx][4])
+        print(count_above, " Boxes above threshold")
+
         assert len(cls_boxes) == len(cls_segms)
         assert len(cls_boxes) == len(round_boxes)
         im_vis2 = np.zeros ((height,width,3), 'float32')
+        # for row in range(height):
+        #     for col in range(width):
+        #         if (im[row][col][0] > 10):
+        #             im_vis2[row][col][:] = im[row][col][0]
+
         for cls in range(len(cls_boxes)):
             for roi in range(len(cls_boxes[cls])):
                 if cls_boxes[cls][roi][4] > 0.7:
@@ -225,23 +254,25 @@ def main():
                     add_x = round_boxes[cls][roi][0]
                     add_y = round_boxes[cls][roi][1]
                     segm_coo = cls_segms[cls][roi].tocoo()
-                    for i,j,v in zip(segm_coo.row, segm_coo.col, segm_coo.data):
-                        im_vis2[add_y + i][add_x + j][:] = 1.0*roi
-        vis_utils.vis_one_image(
-            im_vis2[:, :, ::-1],  # BGR -> RGB for visualization
-            "no_polygon",
-            args.output_dir,
-            cls_boxes,
-            None,
-            cls_keyps,
-            dataset=dataset,
-            box_alpha=0.3,
-            show_class=True,
-            thresh=0.7,
-            kp_thresh=2,
-            no_adc=False,
-            entry=i
-        )
+                    for ii,jj,vv in zip(segm_coo.row, segm_coo.col, segm_coo.data):
+                        im_vis2[add_y + ii][add_x + jj][:] = 1.0*roi
+        t_before_vis = time.time()
+        # vis_utils.vis_one_image(
+        #     im_vis2[:, :, ::-1],  # BGR -> RGB for visualization
+        #     "cpu_mode"+str(i),
+        #     args.output_dir,
+        #     cls_boxes,
+        #     None,
+        #     cls_keyps,
+        #     dataset=dataset,
+        #     box_alpha=0.3,
+        #     show_class=True,
+        #     thresh=0.7,
+        #     kp_thresh=2,
+        #     no_adc=False,
+        #     entry=i,
+        #
+        # )
 
 
         # im_name, _ = os.path.splitext(os.path.basename(file_list[0]))
@@ -261,6 +292,25 @@ def main():
         #     no_adc=False,
         #     entry=i
         # )
+
+        t_end = time.time()
+        # differences:
+        t_total = t_end - t_start + t_total
+        t_load = t_data_loaded - t_start + t_load
+        t_start_b4_detect = t_before_detect - t_data_loaded + t_start_b4_detect
+        t_detection = t_after_detect - t_before_detect + t_detection
+        t_after_detect_vis = t_before_vis - t_after_detect + t_after_detect_vis
+        t_vis = t_end - t_before_vis + t_vis
+    print()
+    print("Time Load from ROOT:                            %.3f ( %.3f" % (t_load, t_load/t_total*100), "%)")
+    print("Time ADC Im Threshold                           %.3f ( %.3f"% (t_start_b4_detect , t_start_b4_detect/t_total*100) , "%)")
+    print("Time to Detect                                  %.3f ( %.3f" % (t_detection , t_detection/t_total*100) , "%)")
+    print("Time to score check and Sparse mask to image    %.3f ( %.3f" % (t_after_detect_vis  , t_after_detect_vis/t_total*100) , "%)")
+    print("Time to Visualize                               %.3f ( %.3f" % (t_vis , t_vis/t_total*100) , "%)")
+
+    print("-------------------------------------------------------")
+    print("Total Time:  %.3f" % t_total)
+
 
     if args.merge_pdfs and num_images > 1:
         merge_out_path = '{}/results.pdf'.format(args.output_dir)

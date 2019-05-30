@@ -169,6 +169,7 @@ class DataSingular(Module):
 
 
         outputs = [self.module(*inputs[0], **kwargs[0])]
+
 #  old code
         # if len(self.device_id) == 1:
         #     outputs = [self.module(*inputs[0], **kwargs[0])]
@@ -211,7 +212,8 @@ class DataSingular(Module):
         #                     print("             CPU")
         #                 else:
         #                     print("            ", torch.get_device(v2))
-        # print()
+        
+        outstuff["rois"] = torch.from_numpy(outstuff["rois"])
         return outstuff
 
 
