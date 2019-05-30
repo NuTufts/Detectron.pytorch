@@ -1,7 +1,9 @@
 data/*
 *.pyc
 *~
-
+*.root
+*.pdf
+*.png
 *.o
 *.so
 
