@@ -5,7 +5,7 @@ MODEL:
   FASTER_RCNN: True
   MASK_ON: True
   LOAD_IMAGENET_PRETRAINED_WEIGHTS: False
-  DEVICE: 'cuda:2'
+  DEVICE: 'cuda:0'
   # DEVICE: 'cpu'
   # Options include 'cpu', 'cuda:0'
   # tensor.to(torch.device(DEVICE))
@@ -14,8 +14,9 @@ MODEL:
 RESNETS:
   IMAGENET_PRETRAINED_WEIGHTS: 'data/pretrained_model/resnet50_caffe.pth'
   # IMAGENET_PRETRAINED_WEIGHTS: 'blargflargmcbard'
-  FREEZE_AT: 0
+  FREEZE_AT: 2
 
+SYNCHRONIZE: True
 NUM_GPUS: 1
 PLANE: 2
 SOLVER:

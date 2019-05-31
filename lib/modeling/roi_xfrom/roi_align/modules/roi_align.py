@@ -26,6 +26,7 @@ class RoIAlignAvg(Module):
         self.sampling_ratio = int(sampling_ratio)
 
     def forward(self, features, rois):
+
         x =  RoIAlignFunction(self.aligned_height+1, self.aligned_width+1,
                                 self.spatial_scale, self.sampling_ratio)(features, rois)
         return avg_pool2d(x, kernel_size=2, stride=1)
@@ -40,6 +41,7 @@ class RoIAlignMax(Module):
         self.sampling_ratio = int(sampling_ratio)
 
     def forward(self, features, rois):
+
         x =  RoIAlignFunction(self.aligned_height+1, self.aligned_width+1,
                                 self.spatial_scale, self.sampling_ratio)(features, rois)
         return max_pool2d(x, kernel_size=2, stride=1)

@@ -5,6 +5,8 @@ from torch import nn
 
 from core.config import cfg
 import utils.boxes as box_utils
+# Doesn't need unless profiling
+
 
 logger = logging.getLogger(__name__)
 
@@ -56,6 +58,7 @@ class GenerateProposalsOp(nn.Module):
 
         """Type conversion"""
         # predicted probability of fg object for each RPN anchor
+
         scores = rpn_cls_prob.data.cpu().numpy()
         # predicted achors transformations
         bbox_deltas = rpn_bbox_pred.data.cpu().numpy()

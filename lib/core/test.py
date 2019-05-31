@@ -54,9 +54,10 @@ from scipy import sparse
 
 #to purity efficiency
 from datasets.larcvdataset import IoU
+import time
 
 
-def im_detect_all(model, im, box_proposals=None, timers=None, use_polygon=True):
+def im_detect_all(model, im, box_proposals=None, timers=None, use_polygon=True ):
     """Process the outputs of model for testing
     Args:
       model: the network module
@@ -79,6 +80,7 @@ def im_detect_all(model, im, box_proposals=None, timers=None, use_polygon=True):
     else:
         scores, boxes, im_scale, blob_conv = im_detect_bbox(
             model, im, cfg.TEST.SCALE, cfg.TEST.MAX_SIZE, box_proposals)
+
     timers['im_detect_bbox'].toc()
 
 
@@ -97,6 +99,7 @@ def im_detect_all(model, im, box_proposals=None, timers=None, use_polygon=True):
             masks = im_detect_mask_aug(model, im, boxes, im_scale, blob_conv)
         else:
             masks = im_detect_mask(model, im_scale, boxes, blob_conv)
+
         timers['im_detect_mask'].toc()
 
         timers['misc_mask'].tic()
@@ -134,6 +137,7 @@ def im_detect_all(model, im, box_proposals=None, timers=None, use_polygon=True):
         timers['misc_keypoints'].toc()
     else:
         cls_keyps = None
+
     if use_polygon:
         return cls_boxes, cls_segms, cls_keyps
     else:
@@ -155,6 +159,8 @@ def im_conv_body_only(model, im, target_scale, target_max_size):
 
 def im_detect_bbox(model, im, target_scale, target_max_size, boxes=None):
     """Prepare the bbox for testing"""
+    torch.cuda.synchronize
+    t_sta = time.time()
     inputs, im_scale = _get_blobs(im, boxes, target_scale, target_max_size)
     if cfg.DEDUP_BOXES > 0 and not cfg.MODEL.FASTER_RCNN:
         v = np.array([1, 1e3, 1e6, 1e9, 1e12])
@@ -186,7 +192,12 @@ def im_detect_bbox(model, im, target_scale, target_max_size, boxes=None):
     # print("Before Return Dict")
     # print('------------------')
     # print()
+    if cfg.SYNCHRONIZE:
+        torch.cuda.synchronize
+        print("Time from imdetect_bbox to right before model forward call: %.3f"% (time.time()-t_sta))
     return_dict = model(**inputs)
+    if cfg.SYNCHRONIZE:
+        torch.cuda.synchronize
 
     if cfg.MODEL.FASTER_RCNN:
         rois = return_dict['rois'].data.cpu().numpy()
@@ -421,15 +432,21 @@ def im_detect_mask(model, im_scale, boxes, blob_conv):
     if boxes.shape[0] == 0:
         pred_masks = np.zeros((0, M, M), np.float32)
         return pred_masks
-
+    if cfg.SYNCHRONIZE:
+        torch.cuda.synchronize
+    t_st = time.time()
     inputs = {'mask_rois': _get_rois_blob(boxes, im_scale)}
 
     # Add multi-level rois for FPN
     if cfg.FPN.MULTILEVEL_ROIS:
         _add_multilevel_rois_for_test(inputs, 'mask_rois')
 
+    if cfg.SYNCHRONIZE:
+        torch.cuda.synchronize
     pred_masks = model.module.mask_net(blob_conv, inputs)
     pred_masks = pred_masks.data.cpu().numpy().squeeze()
+    if cfg.SYNCHRONIZE:
+        torch.cuda.synchronize
 
     if cfg.MRCNN.CLS_SPECIFIC_MASK:
         pred_masks = pred_masks.reshape([-1, cfg.MODEL.NUM_CLASSES, M, M])
@@ -841,8 +858,11 @@ def box_results_with_nms_and_limit(scores, boxes):  # NOTE: support single-batch
             # print(j)
             # print("About to use TEST.NMS")
             # print('Num Proposals First', (dets_j.shape))
+            if cfg.SYNCHRONIZE:
+            	torch.cuda.synchronize
             keep = box_utils.nms(dets_j, cfg.TEST.NMS)
-
+            if cfg.SYNCHRONIZE:
+            	torch.cuda.synchronize
 
 
             nms_dets = dets_j[keep, :]
