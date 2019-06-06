@@ -26,13 +26,15 @@ class RoiDataLoader(data.Dataset):
         index, ratio = index_tuple
         single_db = [self._roidb[index]]
         blobs, valid = get_minibatch(single_db)
-        
+
         #TODO: Check if minibatch is valid ? If not, abandon it.
         # Need to change _worker_loop in torch.utils.data.dataloader.py.
 
         # Squeeze batch dim
         for key in blobs:
             if key != 'roidb':
+                if cfg.DATAFORMAT == 'sparse' and key == 'data':
+                    continue
                 blobs[key] = blobs[key].squeeze(axis=0)
 
         if self._roidb[index]['need_crop']:
@@ -242,7 +244,8 @@ def collate_minibatch(list_of_blobs):
     for i in range(0, len(list_of_blobs), cfg.TRAIN.IMS_PER_BATCH):
         mini_list = list_of_blobs[i:(i + cfg.TRAIN.IMS_PER_BATCH)]
         # Pad image data
-        mini_list = pad_image_data(mini_list)
+        if cfg.DATAFORMAT != 'sparse':
+            mini_list = pad_image_data(mini_list)
         minibatch = default_collate(mini_list)
         minibatch['roidb'] = list_of_roidb[i:(i + cfg.TRAIN.IMS_PER_BATCH)]
         for key in minibatch:

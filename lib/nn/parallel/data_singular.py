@@ -212,8 +212,8 @@ class DataSingular(Module):
         #                     print("             CPU")
         #                 else:
         #                     print("            ", torch.get_device(v2))
-        
-        outstuff["rois"] = torch.from_numpy(outstuff["rois"])
+        if "rois" in outstuff.keys():
+            outstuff["rois"] = torch.from_numpy(outstuff["rois"])
         return outstuff
 
 

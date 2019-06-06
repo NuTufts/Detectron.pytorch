@@ -21,8 +21,9 @@ def sparsify(inputfile, outputfile,
 
     # flowdef_list = [(2,0,1,4,5)] # (src,tar1,tar2,flow-index-1,flow-index-2)
     nentries = io.get_n_entries()
-    nentries = 10
+    # nentries = 10
     for ientry in range(nentries):
+        print("Entry",ientry)
         io.read_entry(ientry)
 
         ev_adc  = io.get_data("image2d","adc")
@@ -49,8 +50,9 @@ def sparsify(inputfile, outputfile,
             # threshold_1v = std.vector("float")(1,threshold_v[p])
 
             adc_sparse_tensor = larcv.SparseImage(adc_v[p], adc_v[p], threshold_v)
-            print("number of sparse floats: ",adc_sparse_tensor.pixellist().size())
-            sparse_nd = larcv.as_ndarray(adc_sparse_tensor,larcv.msg.kDEBUG)
+            print("number of sparse floats: ",adc_sparse_tensor.pixellist().size()/3)
+            sparse_nd = larcv.as_ndarray(adc_sparse_tensor,0)
+            adc_sparse_tensor.meta_v().push_back(adc_v.front().meta())
 
             ncols = adc_v.front().meta().cols()
             nrows = adc_v.front().meta().rows()
@@ -61,7 +63,7 @@ def sparsify(inputfile, outputfile,
             ev_sparse.Append( adc_sparse_tensor )
 
         for p in range(len(cluster_vv)):
-            print(cluster_vv[p][0].meta.width())
+            # print(cluster_vv[p][0].meta.width())
             ev_cluster_out.append(cluster_vv[p])
 
         out.set_id( io.event_id().run(),

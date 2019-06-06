@@ -68,6 +68,7 @@ def _get_image_blob(roidb):
     scales.
     """
     num_images = len(roidb)
+    assert num_images == 1
     # Sample random scales to use for each image in this batch
     scale_inds = np.random.randint(
         0, high=len(cfg.TRAIN.SCALES), size=num_images)
@@ -76,79 +77,81 @@ def _get_image_blob(roidb):
     if cfg.DATA_LOADER.NUM_THREADS > 0:
         # print("Starting Load of Images")
         # print("Length ROIDB:", num_images)
-        image2d_adc_crop_chain = ROOT.TChain("image2d_adc_tree")
+        image2d_adc_crop_chain = 0
+        if cfg.DATAFORMAT == "sparse":
+            image2d_adc_crop_chain = ROOT.TChain("sparseimage_adc_sparse_tree")
+        elif cfg.DATAFORMAT == "full":
+            image2d_adc_crop_chain = ROOT.TChain("image2d_wire_tree")
+        elif cfg.DATAFORMAT == "crop":
+            image2d_adc_crop_chain = ROOT.TChain("image2d_adc_tree")
+        else:
+            assert 1 == 2
+            # Not implemented
         image2d_adc_crop_chain.AddFile(roidb[0]['image'])
-    # for k,v in roidb[0].items():
-    #     print('key', k)
+
     for i in range(num_images):
         #for root files:
         if cfg.DATA_LOADER.NUM_THREADS == 0:
             image2d_adc_crop_chain = roidb[i]['chain_adc']
 
         image2d_adc_crop_chain.GetEntry(roidb[i]['id'])
-        entry_image2dadc_crop_data = image2d_adc_crop_chain.image2d_adc_branch
-        image2dadc_crop_array = entry_image2dadc_crop_data.as_vector()
-        # im_2d = larcv.as_ndarray(image2dadc_crop_array[roidb[i]['plane']])
-        im_2d = larcv.as_ndarray(image2dadc_crop_array[cfg.PLANE])
 
-        im = np.zeros ((roidb[i]['height'],roidb[i]['width'],3))
+        entry_image2dadc_crop_data = 0
+        if cfg.DATAFORMAT == "sparse":
+            entry_image2dadc_crop_data = image2d_adc_crop_chain.sparseimage_adc_sparse_branch
+        elif cfg.DATAFORMAT == "full":
+            entry_image2dadc_crop_data = image2d_adc_crop_chain.image2d_wire_branch
+        elif cfg.DATAFORMAT == "crop":
+            entry_image2dadc_crop_data = image2d_adc_crop_chain.image2d_adc_branch
+        else:
+            assert 1 == 2
+            # Not implemented
+
+        image2dadc_crop_array = 0
+        if cfg.DATAFORMAT == 'sparse':
+            image2dadc_crop_array = entry_image2dadc_crop_data.SparseImageArray()
+        else:
+            image2dadc_crop_array = entry_image2dadc_crop_data.as_vector()
+
+        if ((cfg.DATAFORMAT == 'sparse') and (image2dadc_crop_array.at(cfg.PLANE).meta_v().at(0).rows() != cfg.TRAIN.SCALES[0])):
+            assert 1==2
+            # Sparse not implemented to adjust size
+        if ((cfg.DATAFORMAT == 'sparse') and (image2dadc_crop_array.at(cfg.PLANE).meta_v().at(0).cols() != cfg.TRAIN.MAX_SIZE)):
+            assert 1==2
+            # Sparse not implemented to adjust size
+        im = None
+        if cfg.DATAFORMAT == 'sparse':
+            im = larcv.as_ndarray(image2dadc_crop_array.at(cfg.PLANE),2)
+        else:
+            im = larcv.as_ndarray(image2dadc_crop_array.at(cfg.PLANE))
+            im = np.moveaxis(np.array([np.copy(im),np.copy(im),np.copy(im)]),0,2)
 
 
-        for dim1 in range(len(im_2d)):
-            for dim2 in range(len(im_2d[0])):
-                im[dim1][dim2][:] = im_2d[dim1][dim2]
-        # np.set_printoptions(threshold=np.inf, precision=0, suppress=True)
-        # print('start')
-        # print(im[0:100,0:100,0])
-        # print('stop')
-        # if cfg.TRAIN.MAKE_IMAGES:
-        #     boxes = np.array([[50,50,60,60,.99],[1,1,5,5,.99]])
-        #
-        #     im_numpy = im
-        #     # im_numpy = np.swapaxes(im_numpy,2,1)
-        #     # im_numpy = np.swapaxes(im_numpy,2,0)
-        #     im_numpy[im_numpy>0] = 100
-        #     im_numpy[im_numpy<=0] =0
-        #     vis_utils.vis_one_image(
-        #         im_numpy,
-        #         'GoodImage'+str(i),
-        #         'hmmm/',
-        #         boxes,
-        #         None,
-        #         None,
-        #         dataset=datasets.get_particle_dataset(),
-        #         box_alpha=0.3,
-        #         show_class=True,
-        #         thresh=0.7,
-        #         kp_thresh=2,
-        #         plain_img=True
-        #     )
 
-        # #for jpgs:
-        # im = cv2.imread(roidb[i]['image'])
+
         assert im is not None, \
             'Failed to read image \'{}\''.format(roidb[i]['image'])
-        # If NOT using opencv to read in images, uncomment following lines
-        # if len(im.shape) == 2:
-        #     im = im[:, :, np.newaxis]
-        #     im = np.concatenate((im, im, im), axis=2)
-        # # flip the channel, since the original one using cv2
-        # # rgb -> bgr
-        # im = im[:, :, ::-1]
-        if roidb[i]['flipped']:
-            im = im[:, ::-1, :]
 
-        target_size = cfg.TRAIN.SCALES[scale_inds[i]]
+        # Sparse not implemented to adjust size
+        # if roidb[i]['flipped']:
+            # im = im[:, ::-1, :]
 
-        im, im_scale = blob_utils.prep_im_for_blob(
-            im, cfg.PIXEL_MEANS, [target_size], cfg.TRAIN.MAX_SIZE)
-        im_scales.append(im_scale[0])
-        processed_ims.append(im[0])
-        # print("Ending Load of Images")
+        # target_size = cfg.TRAIN.SCALES[scale_inds[i]]
+
+        # im, im_scale = blob_utils.prep_im_for_blob(
+        #     im, cfg.PIXEL_MEANS, [target_size], cfg.TRAIN.MAX_SIZE)
+
+        im_scales.append(1.0)
+        processed_ims.append(im)
 
 
-    # Create a blob to hold the input images [n, c, h, w]
-    blob = blob_utils.im_list_to_blob(processed_ims)
+    blob = np.zeros((processed_ims[0].shape),dtype=np.float32)
+    if cfg.DATAFORMAT == 'sparse':
+        idx = 0
+        blob = processed_ims[0]
+    else:
+        # Create a blob to hold the input images [n, c, h, w]
+        blob = blob_utils.im_list_to_blob(processed_ims)
 
 
     return blob, im_scales

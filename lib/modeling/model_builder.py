@@ -97,11 +97,17 @@ class Generalized_RCNN(nn.Module):
 
         # Backbone for feature extraction
         self.Conv_Body = get_func(cfg.MODEL.CONV_BODY)()
+        # Originally self.Conv_Body.spatial_scale and self.Conv_Body.dim_out
+        conv_spatial_scale = 1./16.
+        conv_dim_out = 1024
+        print("Forcing Hard code of dim_out 1024 spatial scale 1/16")
 
         # Region Proposal Network
         if cfg.RPN.RPN_ON:
+            # self.RPN = rpn_heads.generic_rpn_outputs(
+            #     self.Conv_Body.dim_out, self.Conv_Body.spatial_scale, self.validation)
             self.RPN = rpn_heads.generic_rpn_outputs(
-                self.Conv_Body.dim_out, self.Conv_Body.spatial_scale, self.validation)
+                conv_dim_out, conv_spatial_scale, self.validation)
 
         if cfg.FPN.FPN_ON:
             # Only supports case when RPN and ROI min levels are the same
@@ -120,14 +126,14 @@ class Generalized_RCNN(nn.Module):
         # BBOX Branch
         if not cfg.MODEL.RPN_ONLY:
             self.Box_Head = get_func(cfg.FAST_RCNN.ROI_BOX_HEAD)(
-                self.RPN.dim_out, self.roi_feature_transform, self.Conv_Body.spatial_scale, self.validation)
+                self.RPN.dim_out, self.roi_feature_transform, conv_spatial_scale, self.validation)
             self.Box_Outs = fast_rcnn_heads.fast_rcnn_outputs(
                 self.Box_Head.dim_out, validation=self.validation)
 
         # Mask Branch
         if cfg.MODEL.MASK_ON:
             self.Mask_Head = get_func(cfg.MRCNN.ROI_MASK_HEAD)(
-                self.RPN.dim_out, self.roi_feature_transform, self.Conv_Body.spatial_scale, self.validation)
+                self.RPN.dim_out, self.roi_feature_transform, conv_spatial_scale, self.validation)
             if getattr(self.Mask_Head, 'SHARE_RES5', False):
                 self.Mask_Head.share_res5_module(self.Box_Head.res5)
             self.Mask_Outs = mask_rcnn_heads.mask_rcnn_outputs(self.Mask_Head.dim_out, self.validation)
@@ -135,7 +141,7 @@ class Generalized_RCNN(nn.Module):
         # Keypoints Branch
         if cfg.MODEL.KEYPOINTS_ON:
             self.Keypoint_Head = get_func(cfg.KRCNN.ROI_KEYPOINTS_HEAD)(
-                self.RPN.dim_out, self.roi_feature_transform, self.Conv_Body.spatial_scale)
+                self.RPN.dim_out, self.roi_feature_transform, conv_spatial_scale)
             if getattr(self.Keypoint_Head, 'SHARE_RES5', False):
                 self.Keypoint_Head.share_res5_module(self.Box_Head.res5)
             self.Keypoint_Outs = keypoint_rcnn_heads.keypoint_outputs(self.Keypoint_Head.dim_out)
@@ -180,11 +186,39 @@ class Generalized_RCNN(nn.Module):
         else:
             device_id = 'cpu'
         return_dict = {}  # A dict to collect return variables
-        if im_data.is_cuda:
-            print(torch.get_device(im_data)," torch.get_device(im_data)")
 
         # This is resnet here
-        blob_conv = self.Conv_Body(im_data)
+        # print("Performing Conv Body of RESNET")
+        # print()
+        # print()
+        # print(im_data.shape, "im_data.shape")
+        # print(im_data[0][0][0], im_data[0][0][1], im_data[0][0][2])
+
+        blob_conv = 0
+
+        # for xyz in range(100):
+        im_coords=0
+        im_values=0
+        if cfg.DATAFORMAT == 'sparse':
+            im_coords =  im_data[0].narrow_copy(1,0,2)
+            im_values =  im_data[0].narrow_copy(1,1,1)
+        if cfg.SYNCHRONIZE:
+            torch.cuda.synchronize
+        t_st_here = time.time()
+        if cfg.DATAFORMAT == 'sparse':
+
+            blob_conv = self.Conv_Body((im_coords,im_values))
+        else:
+            blob_conv = self.Conv_Body(im_data)
+        # print("ResNet Output Shape:", blob_conv.shape)
+
+        if cfg.SYNCHRONIZE:
+            torch.cuda.synchronize
+        # print("time:", time.time()-t_st_here)
+        #
+        # print()
+        # print()
+        # print("DONE")
 
         rpn_ret = self.RPN(blob_conv, im_info, roidb)
         # self.timers['rpn_pass'] += time.time() - relative_time
@@ -393,7 +427,7 @@ class Generalized_RCNN(nn.Module):
         #         print('-------------------------------------')
         #         total+=key_time
         # print('Total Forward Pass Sanity Check:', total)
-        
+
 
         return return_dict
 

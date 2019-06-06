@@ -186,15 +186,47 @@ class LArCVDataset(object):
         ###Try making my own Roidb using root file
         ###
         roidb = []
-        # _files = ['/home/jmills/workdir/sparse_mask/smask-rcnn/sparse_crop_train1_ev.root']
-        _files = ['/media/disk1/jmills/crop_mask_train/crop_train1.root']
+
+        _files = []
+        if cfg.DATAFORMAT == "sparse":
+            _files = ['/home/jmills/workdir/sparse_mask/smask-rcnn/sparse_crop_train1_ev.root']
+        elif cfg.DATAFORMAT == "full":
+            _files = ['/home/jmills/workdir/full_image/larcv_mask.root']
+        elif cfg.DATAFORMAT == "crop":
+            _files = ['/media/disk1/jmills/crop_mask_train/crop_train1.root']
+        else:
+            assert 1 == 2
+            # Not implemented
+
+
+
+
         if self.validation == True:
             _files = ['/media/disk1/jmills/crop_mask_valid/crop_valid.root']
         # _f = ROOT.TFile(_files[0])
-        # image2d_adc_crop_chain = ROOT.TChain("sparseimage_adc_sparse_tree")
-        image2d_adc_crop_chain = ROOT.TChain("image2d_adc_tree")
+        image2d_adc_crop_chain = 0
+        if cfg.DATAFORMAT == "sparse":
+            image2d_adc_crop_chain = ROOT.TChain("sparseimage_adc_sparse_tree")
+        elif cfg.DATAFORMAT == "full":
+            image2d_adc_crop_chain = ROOT.TChain("image2d_wire_tree")
+        elif cfg.DATAFORMAT == "crop":
+            image2d_adc_crop_chain = ROOT.TChain("image2d_adc_tree")
+        else:
+            assert 1 == 2
+            # Not implemented
 
-        clustermask_cluster_crop_chain = ROOT.TChain("clustermask_masks_tree")
+        clustermask_cluster_crop_chain = 0
+        if cfg.DATAFORMAT == "sparse":
+            clustermask_cluster_crop_chain = ROOT.TChain("clustermask_masks_tree")
+        elif cfg.DATAFORMAT == "full":
+            clustermask_cluster_crop_chain = ROOT.TChain("clustermask_cluster_tree")
+        elif cfg.DATAFORMAT == "crop":
+            clustermask_cluster_crop_chain = ROOT.TChain("clustermask_masks_tree")
+        else:
+            assert 1 == 2
+            # Not implemented
+
+
         # print()
         for _file in _files: image2d_adc_crop_chain.AddFile(_file)
         print ('Found', image2d_adc_crop_chain.GetEntries(), 'entries in image2d adc values')
@@ -332,7 +364,20 @@ class LArCVDataset(object):
     def _add_gt_annotations(self, entry, clustermask_cluster_crop_chain):
         """Add ground truth annotation metadata to an roidb entry."""
         clustermask_cluster_crop_chain.GetEntry(entry['id'])
-        entry_clustermaskcluster_crop_data = clustermask_cluster_crop_chain.clustermask_masks_branch
+
+        entry_clustermaskcluster_crop_data = 0
+        if cfg.DATAFORMAT == "sparse":
+            entry_clustermaskcluster_crop_data = clustermask_cluster_crop_chain.clustermask_masks_branch
+        elif cfg.DATAFORMAT == "full":
+            entry_clustermaskcluster_crop_data = clustermask_cluster_crop_chain.clustermask_cluster_branch
+        elif cfg.DATAFORMAT == "crop":
+            entry_clustermaskcluster_crop_data = clustermask_cluster_crop_chain.clustermask_masks_branch
+        else:
+            assert 1 == 2
+            # Not implemented
+
+
+
         clustermaskcluster_crop_array = entry_clustermaskcluster_crop_data.as_vector()
 
 
@@ -343,7 +388,7 @@ class LArCVDataset(object):
         valid_segms = []
         width = entry['width']
         height = entry['height']
-
+        print(len(clustermaskcluster_crop_array[entry['plane']]))
         for idx, mask in enumerate(clustermaskcluster_crop_array[entry['plane']]):
             # crowd regions are RLE encoded and stored as dicts
             # if isinstance(obj['segmentation'], list):
@@ -354,6 +399,10 @@ class LArCVDataset(object):
             obj = {}
             print(mask.meta.width(), "width")
             print(mask.meta.height(), "height")
+            print(mask.box.min_x() , mask.box.max_x())
+            print()
+            print(mask.box.min_y() , mask.box.max_y())
+
             print(mask.points_v.at(0).x, mask.points_v.at(0).y, "xy")
 
             mask_bin_arr = larcv.as_ndarray_mask(mask)
@@ -446,6 +495,7 @@ class LArCVDataset(object):
                 # so they will be excluded during training
                 gt_overlaps[ix, :] = -1.0
             else:
+                print(gt_overlaps.shape)
                 gt_overlaps[ix, cls] = 1.0
 
         entry['boxes'] = np.append(entry['boxes'], boxes, axis=0)

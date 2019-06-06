@@ -128,29 +128,28 @@ def main():
     if args.set_cfgs is not None:
         cfg_from_list(args.set_cfgs)
 
-    assert bool(args.load_ckpt) ^ bool(args.load_detectron), \
-        'Exactly one of --load_ckpt and --load_detectron should be specified.'
+    # assert bool(args.load_ckpt) ^ bool(args.load_detectron), \
+    #     'Exactly one of --load_ckpt and --load_detectron should be specified.'
     cfg.MODEL.LOAD_IMAGENET_PRETRAINED_WEIGHTS = False  # Don't need to load imagenet pretrained weights
     assert_and_infer_cfg(make_immutable=False)
 
     maskRCNN = Generalized_RCNN()
+    if not args.cuda:
+        assert cfg.MODEL.DEVICE == 'cpu'
 
-    if args.cuda:
-        maskRCNN.cuda()
-
-    if args.load_ckpt:
-        load_name = args.load_ckpt
-        print("loading checkpoint %s" % (load_name))
-        if args.cuda:
-            checkpoint = torch.load(load_name, map_location={'cpu':'cuda:1','cuda:0':'cuda:1','cuda:1':'cuda:1','cuda:2':'cuda:1'})
-        else:
-            checkpoint = torch.load(load_name, map_location={'cpu':'cpu','cuda:0':'cpu','cuda:1':'cpu','cuda:2':'cpu'})
-
-        net_utils.load_ckpt(maskRCNN, checkpoint['model'])
-
-    if args.load_detectron:
-        print("loading detectron weights %s" % args.load_detectron)
-        load_detectron_weight(maskRCNN, args.load_detectron)
+    # if args.load_ckpt:
+    #     load_name = args.load_ckpt
+    #     print("loading checkpoint %s" % (load_name))
+    #     if args.cuda:
+    #         checkpoint = torch.load(load_name, map_location={'cpu':'cuda:1','cuda:0':'cuda:1','cuda:1':'cuda:1','cuda:2':'cuda:1'})
+    #     else:
+    #         checkpoint = torch.load(load_name, map_location={'cpu':'cpu','cuda:0':'cpu','cuda:1':'cpu','cuda:2':'cpu'})
+    #
+    #     net_utils.load_ckpt(maskRCNN, checkpoint['model'])
+    #
+    # if args.load_detectron:
+    #     print("loading detectron weights %s" % args.load_detectron)
+    #     load_detectron_weight(maskRCNN, args.load_detectron)
 
     # maskRCNN = mynn.DataParallel(maskRCNN, cpu_keywords=['im_info', 'roidb'],
     #                              minibatch=True, device_ids=[1], output_device=1)  # only support single GPU
@@ -168,7 +167,18 @@ def main():
         file_list = args.images
 
     #collect files
-    image2d_adc_crop_chain = ROOT.TChain("image2d_wire_tree")
+    image2d_adc_crop_chain=0
+    if cfg.DATAFORMAT == "crop":
+        image2d_adc_crop_chain = ROOT.TChain("image2d_adc_tree")
+    elif cfg.DATAFORMAT == "sparse":
+        image2d_adc_crop_chain = ROOT.TChain("sparseimage_adc_sparse_tree")
+    elif cfg.DATAFORMAT == "full":
+        image2d_adc_crop_chain = ROOT.TChain("image2d_wire_tree")
+    else:
+        assert 1==2
+        # Mistakes were made
+
+
     for file in file_list: image2d_adc_crop_chain.AddFile(file)
 
 
@@ -190,7 +200,16 @@ def main():
         t_start = time.time()
         print('img', i)
         image2d_adc_crop_chain.GetEntry(i)
-        entry_image2dadc_crop_data = image2d_adc_crop_chain.image2d_wire_branch
+        entry_image2dadc_crop_data=0
+        if cfg.DATAFORMAT == "sparse":
+            entry_image2dadc_crop_data = image2d_adc_crop_chain.image2d_adc_sparse_branch
+        elif cfg.DATAFORMAT == "crop":
+            entry_image2dadc_crop_data = image2d_adc_crop_chain.image2d_adc_branch
+        elif cfg.DATAFORMAT == "full":
+            entry_image2dadc_crop_data = image2d_adc_crop_chain.image2d_wire_branch
+        else:
+            assert 1==2
+            # Mistakes were made
         image2dadc_crop_array = entry_image2dadc_crop_data.as_vector()
         im_2d = larcv.as_ndarray(image2dadc_crop_array[cfg.PLANE])
         height, width = im_2d.shape

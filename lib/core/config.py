@@ -185,7 +185,7 @@ __C.DATA_LOADER = AttrDict()
 # Number of Python threads to use for the data loader (warning: using too many
 # threads can cause GIL-based interference with Python Ops leading to *slower*
 # training; 4 seems to be the sweet spot in our experience)
-__C.DATA_LOADER.NUM_THREADS = 4
+__C.DATA_LOADER.NUM_THREADS = 1
 
 
 # ---------------------------------------------------------------------------- #
@@ -940,6 +940,10 @@ __C.GROUP_NORM.EPSILON = 1e-5
 # MISC options
 # ---------------------------------------------------------------------------- #
 
+# Whether you run on crop, full image, or sparse
+# (this just adjusts the names of the root branches)
+__C.DATAFORMAT = 'crop'
+
 # Whether to include synchronize calls on cuda processes
 __C.SYNCHRONIZE = False
 
@@ -980,7 +984,7 @@ __C.EPS = 1e-14
 __C.ROOT_DIR = osp.abspath(osp.join(osp.dirname(__file__), '..', '..'))
 
 # Output basedir
-__C.OUTPUT_DIR = '/media/disk1/jmills/Outputs'
+__C.OUTPUT_DIR = '/media/disk1/jmills/Outputs/sparse'
 
 # Name (or path to) the matlab executable
 __C.MATLAB = 'matlab'

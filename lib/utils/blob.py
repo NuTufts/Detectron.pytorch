@@ -117,30 +117,6 @@ def prep_im_for_blob(im, pixel_means, target_sizes, max_size):
     """
     im = im.astype(np.float32, copy=False)
     im -= pixel_means
-    # if cfg.TRAIN.MAKE_IMAGES:
-    #     import utils.vis as vis_utils
-    #
-    #     boxes = np.array([[50,50,60,60,.99],[1,1,5,5,.99]])
-    #
-    #     im_numpy = im
-    #     # im_numpy = np.swapaxes(im_numpy,2,1)
-    #     # im_numpy = np.swapaxes(im_numpy,2,0)
-    #     im_numpy[im_numpy>0] = 100
-    #     im_numpy[im_numpy<=0] =0
-    #     vis_utils.vis_one_image(
-    #         im_numpy,
-    #         'TestImage',
-    #         'hmmm/',
-    #         boxes,
-    #         None,
-    #         None,
-    #         dataset=datasets.get_particle_dataset(),
-    #         box_alpha=0.3,
-    #         show_class=True,
-    #         thresh=0.7,
-    #         kp_thresh=2,
-    #         plain_img=True
-    #     )
     im_shape = im.shape
     im_size_min = np.min(im_shape[0:2])
     im_size_max = np.max(im_shape[0:2])

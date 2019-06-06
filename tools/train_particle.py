@@ -131,7 +131,7 @@ def save_ckpt(output_dir, args, step, train_size, model, optimizer):
     if not os.path.exists(ckpt_dir):
         os.makedirs(ckpt_dir)
     save_name = os.path.join(ckpt_dir, 'model_step{}.pth'.format(step))
-    if isinstance(model, mynn.DataParallel):
+    if isinstance(model, mynn.DataSingular):
         model = model.module
     model_state_dict = model.state_dict()
     torch.save({
@@ -352,13 +352,11 @@ def main():
     #                              minibatch=True ) # cfg_device=cfg.MODEL.DEVICE
 
     maskRCNN = mynn.DataSingular(maskRCNN, cpu_keywords=['im_info', 'roidb'],
-                                 minibatch=True , device_id=[cfg.MODEL.DEVICE]) # 
+                                 minibatch=True , device_id=[cfg.MODEL.DEVICE]) #
 
-    print(maskRCNN.device_id , "Dataparallel device_ids2")
 
     maskRCNN = maskRCNN.to(torch.device(cfg.MODEL.DEVICE))
 
-    print(maskRCNN.device_id , "Dataparallel device_ids3")
 
     # Sample tensor moving code
     # print("00000000000000000000")
@@ -485,6 +483,7 @@ def main():
                 # etimer['dataiterator'] += time.time()-time_before
 
                 # time_before = time.time()
+
                 for key in input_data:
                     if key != 'roidb': # roidb is a list of ndarrays with inconsistent length
                         input_data[key] = list(map(Variable, input_data[key]))

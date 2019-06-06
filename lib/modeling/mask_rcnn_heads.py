@@ -196,7 +196,7 @@ def mask_rcnn_losses(masks_pred, masks_int32):
         num_on=1
 
     weight = weight  * ( (1-masks_gt)*total_num/num_off + (masks_gt)*total_num/num_on )
-    if synchronize_cuda:
+    if cfg.SYNCHRONIZE:
         torch.cuda.synchronize
     t_st =time.time()
     # print()
@@ -234,7 +234,7 @@ def mask_rcnn_losses(masks_pred, masks_int32):
 
     loss = F.binary_cross_entropy_with_logits(
         masks_pred.view(n_rois, -1), masks_gt, weight, reduction='sum')
-    if synchronize_cuda:
+    if cfg.SYNCHRONIZE:
         torch.cuda.synchronize
         print("Time taken to calc loss: %.3f " % (time.time()- t_st))
     # print()
@@ -242,7 +242,7 @@ def mask_rcnn_losses(masks_pred, masks_int32):
     # print('loss shape is: ', loss.shape)
     # print()
     loss /= total_for_avg
-    if synchronize_cuda:
+    if cfg.SYNCHRONIZE:
     	torch.cuda.synchronize
     return loss * cfg.MRCNN.WEIGHT_LOSS_MASK
 

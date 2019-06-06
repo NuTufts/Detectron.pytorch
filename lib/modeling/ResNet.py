@@ -10,10 +10,30 @@ import nn as mynn
 import utils.net as net_utils
 from utils.resnet_weights_helper import convert_state_dict
 import time
-
+import sys
+sys.path.append("/home/jmills/workdir/sparse_mask/smask-rcnn/SparseConvNet/")
+import sparseconvnet as scn
+# Before ResNet
+# torch.Size([1, 3, 1008, 3456]) <class 'torch.Tensor'>
+# Time Spent Doing ResNet Core: 3.352
+# After ResNet
+# torch.Size([1, 1024, 63, 216]) <class 'torch.Tensor'>
 # ---------------------------------------------------------------------------- #
 # Bits for specific architectures (ResNet50, ResNet101, ...)
 # ---------------------------------------------------------------------------- #
+
+def ResNet50_conv4_body_sparse():
+    if cfg.DATAFORMAT == 'sparse':
+        print()
+        print("SPARSE RESNET HERE!")
+        print()
+        return  scn.Sequential(scn.InputLayer(2, (cfg.TRAIN.SCALES[0],cfg.TRAIN.MAX_SIZE), 0),
+                scn.MaxPooling(2,16,16),
+                scn.SparseResNet(2,1,[['basic',64,2,1],['basic',256,2,1],['basic',512,2,1],['basic',1024,2,1],]),
+                scn.SparseToDense(2,1024))
+                # scn.OutputLayer(2))
+    # return ResNet_convX_body_sparse((3, 4, 6))
+    return ResNet_convX_body((3, 4, 6))
 
 def ResNet50_conv4_body():
     return ResNet_convX_body((3, 4, 6))
@@ -38,6 +58,141 @@ def ResNet152_conv5_body():
 # ---------------------------------------------------------------------------- #
 # Generic ResNet components
 # ---------------------------------------------------------------------------- #
+
+
+class ResNet_convX_body_sparse(nn.Module):
+    def __init__(self, block_counts):
+
+        super().__init__()
+        # print("Not a good way determining shape for train/deploy in RESNET.py")
+        # self.convX = 4
+        # self._inputshape = cfg.TRAIN.SCALES[0] * cfg.TRAIN.MAX_SIZE
+        # self._dimension  = 2
+        # self._mode = 0
+        # self._nin_features = 16
+        # # self.res1 = scn.Sequential().add(scn.InputLayer(self._dimension, self._inputshape, mode=self._mode))
+        # # self.res1.add(scn.SubmanifoldConvolution(self._dimension, 1, self._nin_features, 3, False))
+        # # self.res1.add(scn.BatchNormReLU(self._nin_features))
+        # #     .add(
+        # #     scn.MaxPooling(dimension, pool_size, pool_stride, nFeaturesToDrop=0))
+        #
+        # self.res1 = scn.Sequential().add(
+        #     scn.InputLayer(self._dimension, self._inputshape, mode=self._mode)).add(
+        #     scn.SubmanifoldConvolution(self._dimension, 1, self._nin_features, 3, False)).add(
+        #     scn.BatchNormReLU(self._nin_features)).add(
+        #     scn.MaxPooling(self._dimension, 3, 2, nFeaturesToDrop=0))
+
+
+
+
+        # self.res2 = scn.Sequential()
+        # self.res3 = scn.Sequential()
+        # self.res4 = scn.Sequential()
+
+
+        self.block_counts = block_counts
+        self.convX = len(block_counts) + 1
+        self.num_layers = (sum(block_counts) + 3 * (self.convX == 4)) * 3 + 2
+
+        self.res1 = globals()[cfg.RESNETS.STEM_FUNC]()
+        dim_in = 64
+        dim_bottleneck = cfg.RESNETS.NUM_GROUPS * cfg.RESNETS.WIDTH_PER_GROUP
+        print("2")
+        print(dim_in , "256" , dim_bottleneck, block_counts[0])
+        self.res2, dim_in = add_stage(dim_in, 256, dim_bottleneck, block_counts[0],
+                                      dilation=1, stride_init=1)
+        print("3")
+        print(dim_in , "512" , dim_bottleneck*2, block_counts[1])
+        self.res3, dim_in = add_stage(dim_in, 512, dim_bottleneck * 2, block_counts[1],
+                                      dilation=1, stride_init=2)
+        print("4")
+        print(dim_in , "1024" , dim_bottleneck*4, block_counts[2])
+        self.res4, dim_in = add_stage(dim_in, 1024, dim_bottleneck * 4, block_counts[2],
+                                      dilation=1, stride_init=2)
+
+
+
+        if len(block_counts) == 4:
+            stride_init = 2 if cfg.RESNETS.RES5_DILATION == 1 else 1
+            self.res5, dim_in = add_stage(dim_in, 2048, dim_bottleneck * 8, block_counts[3],
+                                          cfg.RESNETS.RES5_DILATION, stride_init)
+            self.spatial_scale = 1 / 32 * cfg.RESNETS.RES5_DILATION
+        else:
+            self.spatial_scale = 1 / 16  # final feature scale wrt. original image scale
+
+        self.dim_out = dim_in
+
+        self._init_modules()
+        print()
+        print("Init Completed")
+        print()
+
+
+    def _init_modules(self):
+        print()
+        print("RESNET INIT EMPTY NO FREEZE")
+        print()
+        assert cfg.RESNETS.FREEZE_AT in [0, 2, 3, 4, 5]
+        assert cfg.RESNETS.FREEZE_AT <= self.convX
+        for i in range(1, cfg.RESNETS.FREEZE_AT + 1):
+            freeze_params(getattr(self, 'res%d' % i))
+
+        # Freeze all bn (affine) layers !!!
+        self.apply(lambda m: freeze_params(m) if isinstance(m, mynn.AffineChannel2d) else None)
+
+
+    def detectron_weight_mapping(self):
+        if cfg.RESNETS.USE_GN:
+            mapping_to_detectron = {
+                'res1.conv1.weight': 'conv1_w',
+                'res1.gn1.weight': 'conv1_gn_s',
+                'res1.gn1.bias': 'conv1_gn_b',
+            }
+            orphan_in_detectron = ['pred_w', 'pred_b']
+        else:
+            mapping_to_detectron = {
+                'res1.conv1.weight': 'conv1_w',
+                'res1.bn1.weight': 'res_conv1_bn_s',
+                'res1.bn1.bias': 'res_conv1_bn_b',
+            }
+            orphan_in_detectron = ['conv1_b', 'fc1000_w', 'fc1000_b']
+
+        for res_id in range(2, self.convX + 1):
+            stage_name = 'res%d' % res_id
+            mapping, orphans = residual_stage_detectron_mapping(
+                getattr(self, stage_name), stage_name,
+                self.block_counts[res_id - 2], res_id)
+            mapping_to_detectron.update(mapping)
+            orphan_in_detectron.extend(orphans)
+
+        return mapping_to_detectron, orphan_in_detectron
+
+    def train(self, mode=True):
+        # Override
+        self.training = mode
+
+        for i in range(cfg.RESNETS.FREEZE_AT + 1, self.convX + 1):
+            getattr(self, 'res%d' % i).train(mode)
+
+    def forward(self, x):
+        t_st = time.time()
+        # print(self)
+        # if cfg.SYNCHRONIZE:
+        #     print("Before ResNet")
+        #     print(x.shape, type(x))
+        #     torch.cuda.synchronize
+        for i in range(self.convX):
+            x = getattr(self, 'res%d' % (i + 1))(x)
+            print(x.shape, type(x), "after", i)
+        # if cfg.SYNCHRONIZE:
+        #     torch.cuda.synchronize
+        #     print("Time Spent Doing ResNet Core: %0.3f" %(time.time() - t_st))
+        #     print("After ResNet")
+            # print(x.shape, type(x))
+        return x
+
+
+
 
 
 class ResNet_convX_body(nn.Module):
@@ -115,16 +270,19 @@ class ResNet_convX_body(nn.Module):
             getattr(self, 'res%d' % i).train(mode)
 
     def forward(self, x):
+        # print("x.shape",x.shape)
+
         t_st = time.time()
-        if cfg.SYNCHRONIZE:
-            print("Before ResNet")
-            torch.cuda.synchronize
+        # if cfg.SYNCHRONIZE:
+        #     print("Before ResNet")
+        #     torch.cuda.synchronize
         for i in range(self.convX):
             x = getattr(self, 'res%d' % (i + 1))(x)
-        if cfg.SYNCHRONIZE:
-            torch.cuda.synchronize
-            print("Time Spent Doing ResNet Core: %0.3f" %(time.time() - t_st))
-            print("After ResNet")
+        # if cfg.SYNCHRONIZE:
+        #     torch.cuda.synchronize
+        #     print("Time Spent Doing ResNet Core: %0.3f" %(time.time() - t_st))
+        #     print("After ResNet")
+        # print("x.shape",x.shape)
 
         return x
 
@@ -213,6 +371,7 @@ def add_residual_block(inplanes, outplanes, innerplanes, dilation, stride):
 # ------------------------------------------------------------------------------
 
 def basic_bn_shortcut(inplanes, outplanes, stride):
+    print("inplanes, outplanes, stride, of bn stem 1")
     return nn.Sequential(
         nn.Conv2d(inplanes,
                   outplanes,

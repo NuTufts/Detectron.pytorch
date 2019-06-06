@@ -1,6 +1,6 @@
 MODEL:
   TYPE: generalized_rcnn
-  CONV_BODY: ResNet.ResNet50_conv4_body
+  CONV_BODY: ResNet.ResNet50_conv4_body_sparse
   NUM_CLASSES: 7
   FASTER_RCNN: True
   MASK_ON: True
@@ -14,9 +14,11 @@ MODEL:
 RESNETS:
   IMAGENET_PRETRAINED_WEIGHTS: 'data/pretrained_model/resnet50_caffe.pth'
   # IMAGENET_PRETRAINED_WEIGHTS: 'blargflargmcbard'
-  FREEZE_AT: 2
-
-SYNCHRONIZE: True
+  FREEZE_AT: 0
+#DataFormat: full, crop, sparse
+# DATAFORMAT: "crop"
+DATAFORMAT: "sparse"
+SYNCHRONIZE: False
 NUM_GPUS: 1
 PLANE: 2
 SOLVER:
@@ -26,7 +28,7 @@ SOLVER:
   #was .01
   GAMMA: 0.1
   # 1x schedule (note TRAIN.IMS_PER_BATCH: 1)
-  MAX_ITER: 1 #274500
+  MAX_ITER: 3000 #274500
   STEPS: [0]
 RPN:
   SIZES: (32, 64, 128, 256, 512)
