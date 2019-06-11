@@ -5,8 +5,8 @@ MODEL:
   FASTER_RCNN: True
   MASK_ON: True
   LOAD_IMAGENET_PRETRAINED_WEIGHTS: False
-  DEVICE: 'cuda:0'
-  # DEVICE: 'cpu'
+  # DEVICE: 'cuda:0'
+  DEVICE: 'cpu'
   # Options include 'cpu', 'cuda:0'
   # tensor.to(torch.device(DEVICE))
   # get_device() returns the torch.device a tensor is on, but make sure to check

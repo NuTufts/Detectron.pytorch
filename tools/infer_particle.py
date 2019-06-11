@@ -142,7 +142,7 @@ def main():
         load_name = args.load_ckpt
         print("loading checkpoint %s" % (load_name))
         if args.cuda:
-            checkpoint = torch.load(load_name, map_location={'cpu':'cuda:1','cuda:0':'cuda:1','cuda:1':'cuda:1','cuda:2':'cuda:1'})
+            checkpoint = torch.load(load_name, map_location={'cpu':'cuda:0','cuda:0':'cuda:0','cuda:1':'cuda:0','cuda:2':'cuda:0'})
         else:
             checkpoint = torch.load(load_name, map_location={'cpu':'cpu','cuda:0':'cpu','cuda:1':'cpu','cuda:2':'cpu'})
 
