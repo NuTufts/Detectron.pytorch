@@ -55,7 +55,7 @@ def parse_args():
     parser.add_argument(
         '--outfile', required=False,
         help="path to out file",
-        default='example_out.root')
+        default='ubmrcnn.root')
 
     parser.add_argument(
         '--num_entries',
@@ -160,7 +160,7 @@ def main():
                     run    = io_in.event_id().run()
                     subrun = io_in.event_id().subrun()
                     event  = io_in.event_id().event()
-                    print("num of planes in entry {}: ".format((run,subrun,event)),nplanes)
+                    # print("num of planes in entry {}: ".format((run,subrun,event)),nplanes)
 
                     # define the roi_v images
                     # img2d_v = {}
@@ -181,7 +181,7 @@ def main():
 
                     assert im is not None
                     thresh = 0.7
-                    print("Using a score threshold of 0.7 to cut boxes. Hard Coded")
+                    # print("Using a score threshold of 0.7 to cut boxes. Hard Coded")
                     clustermasks_this_img = []
                     cls_boxes, cls_segms, cls_keyps, round_boxes = im_detect_all(model, im, timers=None, use_polygon=False)
                     np.set_printoptions(suppress=True)
@@ -206,14 +206,12 @@ def main():
 
                                 clustermasks_this_img.append(larcv.as_clustermask(segm_np, round_box, meta, np.array([cls_boxes[cls][roi][4]], dtype=np.float32)))
                                 nmasks = nmasks+1
-                    print("Nmasks!",nmasks)
 # End of make reply
                     ev_clustermasks = io_out.\
                                     get_data(larcv.kProductClusterMask,
                                              mrcnn_tree_name)
                     masks_vv = ev_clustermasks.as_vector()
                     if len(masks_vv) != len(planes):
-                        print("Resizing to ", len(planes))
                         masks_vv.resize(1)
                     print("Length: ", len(clustermasks_this_img))
                     for mask in clustermasks_this_img:
@@ -223,7 +221,6 @@ def main():
                     io_out.set_id( io_in.event_id().run(),
                                        io_in.event_id().subrun(),
                                        io_in.event_id().event())
-                    print("SAVING ENTRY")
                     io_out.save_entry()
 
                     # End of the Worker
@@ -242,7 +239,6 @@ def main():
                 nentries = io_in.get_n_entries()
 
             for entry_num in range(nentries):
-                print("    Recombine Entry:", entry_num)
                 for plane in planes:
                     ok = ios_in[plane].read_entry(entry_num)
                     if not ok:
@@ -270,6 +266,8 @@ def main():
 
 
             io_out_final.finalize()
+            for plane in planes:
+                os.remove("plane_"+str(plane)+".root")
 
 
 
