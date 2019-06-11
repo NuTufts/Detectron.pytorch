@@ -191,7 +191,7 @@ class LArCVDataset(object):
         if self.validation == True:
             _files = ['/media/disk1/jmills/crop_mask_valid/crop_valid.root']
         # _f = ROOT.TFile(_files[0])
-        image2d_adc_crop_chain = ROOT.TChain("sparseimage_adc_sparse_tree")
+        # image2d_adc_crop_chain = ROOT.TChain("sparseimage_adc_sparse_tree")
         image2d_adc_crop_chain = ROOT.TChain("image2d_adc_tree")
 
         clustermask_cluster_crop_chain = ROOT.TChain("clustermask_masks_tree")

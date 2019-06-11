@@ -9,6 +9,7 @@ from core.config import cfg
 import nn as mynn
 import utils.net as net_utils
 from utils.resnet_weights_helper import convert_state_dict
+import time
 
 # ---------------------------------------------------------------------------- #
 # Bits for specific architectures (ResNet50, ResNet101, ...)
@@ -114,8 +115,16 @@ class ResNet_convX_body(nn.Module):
             getattr(self, 'res%d' % i).train(mode)
 
     def forward(self, x):
+        t_st = time.time()
+        if cfg.SYNCHRONIZE:
+            print("Before ResNet")
+            torch.cuda.synchronize
         for i in range(self.convX):
             x = getattr(self, 'res%d' % (i + 1))(x)
+        if cfg.SYNCHRONIZE:
+            torch.cuda.synchronize
+            print("Time Spent Doing ResNet Core: %0.3f" %(time.time() - t_st))
+            print("After ResNet")
 
         return x
 

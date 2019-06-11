@@ -5,6 +5,12 @@ setup_layers.py
 /home/jmills/workdir/mask-rcnn.pytorch/lib/model/csrc/cuda/ROIAlign_cuda.cu
 /home/jmills/workdir/mask-rcnn.pytorch/lib/model/csrc/cuda/ROIPool_cuda.cu
 /home/jmills/workdir/mask-rcnn.pytorch/lib/model/csrc/cuda/nms.cu
+/home/jmills/workdir/sparse_mask/cpu_mask-rcnn/lib/model/csrc/vision.cpp
+/home/jmills/workdir/sparse_mask/cpu_mask-rcnn/lib/model/csrc/cpu/ROIAlign_cpu.cpp
+/home/jmills/workdir/sparse_mask/cpu_mask-rcnn/lib/model/csrc/cpu/nms_cpu.cpp
+/home/jmills/workdir/sparse_mask/cpu_mask-rcnn/lib/model/csrc/cuda/ROIAlign_cuda.cu
+/home/jmills/workdir/sparse_mask/cpu_mask-rcnn/lib/model/csrc/cuda/ROIPool_cuda.cu
+/home/jmills/workdir/sparse_mask/cpu_mask-rcnn/lib/model/csrc/cuda/nms.cu
 /home/jmills/workdir/sparse_mask/smask-rcnn/lib/model/csrc/vision.cpp
 /home/jmills/workdir/sparse_mask/smask-rcnn/lib/model/csrc/cpu/ROIAlign_cpu.cpp
 /home/jmills/workdir/sparse_mask/smask-rcnn/lib/model/csrc/cpu/nms_cpu.cpp
@@ -77,6 +83,7 @@ nn/modules/upsample.py
 nn/parallel/__init__.py
 nn/parallel/_functions.py
 nn/parallel/data_parallel.py
+nn/parallel/data_singular.py
 nn/parallel/parallel_apply.py
 nn/parallel/replicate.py
 nn/parallel/scatter_gather.py

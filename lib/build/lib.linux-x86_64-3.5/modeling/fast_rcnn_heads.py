@@ -7,6 +7,7 @@ from torch.autograd import Variable
 from core.config import cfg
 import nn as mynn
 import utils.net as net_utils
+import time
 
 
 class fast_rcnn_outputs(nn.Module):
@@ -38,13 +39,21 @@ class fast_rcnn_outputs(nn.Module):
         return detectron_weight_mapping, orphan_in_detectron
 
     def forward(self, x):
+        t_st = time.time()
+        
+        if cfg.SYNCHRONIZE:
+            torch.cuda.synchronize
+            print('Before BoxClass')
         if x.dim() == 4:
             x = x.squeeze(3).squeeze(2)
         cls_score = self.cls_score(x)
         if not self.training and not self.validation:
             cls_score = F.softmax(cls_score, dim=1)
         bbox_pred = self.bbox_pred(x)
-
+        if cfg.SYNCHRONIZE:
+            torch.cuda.synchronize
+            print("Time taken to Predict Box Class: %.3f " % (time.time() - t_st))
+            print("After BoxClass")
         return cls_score, bbox_pred
 
 

@@ -168,7 +168,7 @@ def main():
         file_list = args.images
 
     #collect files
-    image2d_adc_crop_chain = ROOT.TChain("image2d_wire_tree")
+    image2d_adc_crop_chain = ROOT.TChain("image2d_adc_tree")
     for file in file_list: image2d_adc_crop_chain.AddFile(file)
 
 
@@ -190,7 +190,7 @@ def main():
         t_start = time.time()
         print('img', i)
         image2d_adc_crop_chain.GetEntry(i)
-        entry_image2dadc_crop_data = image2d_adc_crop_chain.image2d_wire_branch
+        entry_image2dadc_crop_data = image2d_adc_crop_chain.image2d_adc_branch
         image2dadc_crop_array = entry_image2dadc_crop_data.as_vector()
         im_2d = larcv.as_ndarray(image2dadc_crop_array[cfg.PLANE])
         height, width = im_2d.shape
@@ -225,7 +225,11 @@ def main():
         timers = defaultdict(Timer)
         t_before_detect = time.time()
         # with torch.autograd.profiler.profile(use_cuda=False) as prof:
+        if cfg.SYNCHRONIZE:
+            torch.cuda.synchronize
         cls_boxes, cls_segms, cls_keyps, round_boxes = im_detect_all(maskRCNN, im, timers=timers, use_polygon=False)
+        if cfg.SYNCHRONIZE:
+            torch.cuda.synchronize
         # print(prof)
 
         print(len(cls_boxes[1]), "Boxes Made with Scores")
@@ -303,11 +307,10 @@ def main():
         t_vis = t_end - t_before_vis + t_vis
     print()
     print("Time Load from ROOT:                            %.3f ( %.3f" % (t_load, t_load/t_total*100), "%)")
-    print("Time ADC Im Threshold                           %.3f ( %.3f"% (t_start_b4_detect , t_start_b4_detect/t_total*100) , "%)")
+    print("Time ADC Im Threshold                           %.3f ( %.3f" % (t_start_b4_detect , t_start_b4_detect/t_total*100) , "%)")
     print("Time to Detect                                  %.3f ( %.3f" % (t_detection , t_detection/t_total*100) , "%)")
     print("Time to score check and Sparse mask to image    %.3f ( %.3f" % (t_after_detect_vis  , t_after_detect_vis/t_total*100) , "%)")
     print("Time to Visualize                               %.3f ( %.3f" % (t_vis , t_vis/t_total*100) , "%)")
-
     print("-------------------------------------------------------")
     print("Total Time:  %.3f" % t_total)
 

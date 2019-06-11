@@ -16,15 +16,23 @@ def scatter(inputs, target_gpus, dim=0):
     support Tensors.
     """
     def scatter_map(obj):
+        # print("    scatter map called")
+        # print("         object type:",type(obj))
+        # print("         object len: ",len(obj))
         if isinstance(obj, Variable):
+            # print("     going to variable return")
             return Scatter.apply(target_gpus, None, dim, obj)
         assert not torch.is_tensor(obj), "Tensors not supported in scatter."
         if isinstance(obj, tuple) and len(obj) > 0:
+            # print("     going to tuple return")
             return list(zip(*map(scatter_map, obj)))
         if isinstance(obj, list) and len(obj) > 0:
+            # print("     going to list return")
             return list(map(list, zip(*map(scatter_map, obj))))
         if isinstance(obj, dict) and len(obj) > 0:
+            # print("     going to dict return")
             return list(map(type(obj), zip(*map(scatter_map, obj.items()))))
+        # print("                 going to final return")
         return [obj for targets in target_gpus]
 
     # After scatter_map is called, a scatter_map cell will exist. This cell

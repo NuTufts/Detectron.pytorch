@@ -169,6 +169,8 @@ class Generalized_RCNN(nn.Module):
         # self.timers['begin_forward_pass']=time.time()
         relative_time =time.time()
 
+        torch.cuda.synchronize
+        t_st = time.time()
         im_data = data
         if self.training or self.validation:
             roidb = list(map(lambda x: blob_utils.deserialize(x)[0], roidb))
@@ -178,14 +180,15 @@ class Generalized_RCNN(nn.Module):
         else:
             device_id = 'cpu'
         return_dict = {}  # A dict to collect return variables
+        if im_data.is_cuda:
+            print(torch.get_device(im_data)," torch.get_device(im_data)")
 
+        # This is resnet here
         blob_conv = self.Conv_Body(im_data)
 
         rpn_ret = self.RPN(blob_conv, im_info, roidb)
-
         # self.timers['rpn_pass'] += time.time() - relative_time
-        relative_time =time.time()
-
+        relative_time = time.time()
 
         if self.training or self.validation:
             # can be used to infer fg/bg ratio
@@ -200,18 +203,24 @@ class Generalized_RCNN(nn.Module):
             return_dict['blob_conv'] = blob_conv
 
         if not cfg.MODEL.RPN_ONLY:
+            t_st_bhead = time.time()
             if cfg.MODEL.SHARE_RES5 and (self.training or self.validation):
-
                 box_feat, res5_feat = self.Box_Head(blob_conv, rpn_ret)
             else:
                 box_feat = self.Box_Head(blob_conv, rpn_ret)
+            if cfg.SYNCHRONIZE:
+                torch.cuda.synchronize
+                print("Time taken to boxhead: %.3f " % (time.time() - t_st_bhead))
             cls_score, bbox_pred = self.Box_Outs(box_feat)
+
         else:
             # TODO: complete the returns for RPN only situation
             pass
 
         # self.timers['not_rpn_only'] += time.time() - relative_time
         relative_time =time.time()
+
+
         if self.training or self.validation:
             return_dict['losses'] = {}
             return_dict['metrics'] = {}
@@ -384,6 +393,7 @@ class Generalized_RCNN(nn.Module):
         #         print('-------------------------------------')
         #         total+=key_time
         # print('Total Forward Pass Sanity Check:', total)
+        
 
         return return_dict
 
@@ -473,7 +483,11 @@ class Generalized_RCNN(nn.Module):
     @check_inference
     def mask_net(self, blob_conv, rpn_blob):
         """For inference"""
+        t_st = time.time()
         mask_feat = self.Mask_Head(blob_conv, rpn_blob)
+        if cfg.SYNCHRONIZE:
+            torch.cuda.synchronize
+            print("Time til end of mask head (before outs): %.3f" % (time.time() - t_st) )
         mask_pred = self.Mask_Outs(mask_feat)
         return mask_pred
 

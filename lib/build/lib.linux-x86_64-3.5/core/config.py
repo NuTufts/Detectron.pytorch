@@ -36,7 +36,7 @@ __C.TRAIN = AttrDict()
 # Datasets to train on
 # Available dataset list: datasets.dataset_catalog.DATASETS.keys()
 # If multiple datasets are listed, the model is trained on their union
-__C.TRAIN.DATASETS = ()
+__C.TRAIN.DATASETS = ('particle_physics_train')
 
 # Scales to use during training
 # Each scale is the pixel size of an image's shortest side
@@ -421,7 +421,7 @@ __C.MODEL.CONV_BODY = ''
 
 # Number of classes in the dataset; must be set
 # E.g., 81 for COCO (80 foreground + 1 background)
-__C.MODEL.NUM_CLASSES = -1
+__C.MODEL.NUM_CLASSES = 7
 
 # Use a class agnostic bounding box regressor instead of the default per-class
 # regressor
@@ -939,6 +939,9 @@ __C.GROUP_NORM.EPSILON = 1e-5
 # ---------------------------------------------------------------------------- #
 # MISC options
 # ---------------------------------------------------------------------------- #
+
+# Whether to include synchronize calls on cuda processes
+__C.SYNCHRONIZE = False
 
 # Number of GPUs to use (applies to both training and testing)
 __C.NUM_GPUS = 1

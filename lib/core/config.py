@@ -940,6 +940,9 @@ __C.GROUP_NORM.EPSILON = 1e-5
 # MISC options
 # ---------------------------------------------------------------------------- #
 
+# Whether to include synchronize calls on cuda processes
+__C.SYNCHRONIZE = False
+
 # Number of GPUs to use (applies to both training and testing)
 __C.NUM_GPUS = 1
 

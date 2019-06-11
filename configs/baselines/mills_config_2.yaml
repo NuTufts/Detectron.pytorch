@@ -5,8 +5,8 @@ MODEL:
   FASTER_RCNN: True
   MASK_ON: True
   LOAD_IMAGENET_PRETRAINED_WEIGHTS: False
-  # DEVICE: 'cuda:0'
-  DEVICE: 'cpu'
+  DEVICE: 'cuda:0'
+  # DEVICE: 'cpu'
   # Options include 'cpu', 'cuda:0'
   # tensor.to(torch.device(DEVICE))
   # get_device() returns the torch.device a tensor is on, but make sure to check
@@ -16,6 +16,7 @@ RESNETS:
   # IMAGENET_PRETRAINED_WEIGHTS: 'blargflargmcbard'
   FREEZE_AT: 0
 
+SYNCHRONIZE: False
 NUM_GPUS: 1
 PLANE: 2
 SOLVER:
@@ -57,8 +58,8 @@ TRAIN:
 
   # GT_IOU_THRESH: 0.2
 TEST:
-  SCALE: 1008
-  MAX_SIZE: 3456
+  SCALE: 512
+  MAX_SIZE: 832
   NMS: 0.5
   RPN_NMS_THRESH: 0.5
   RPN_PRE_NMS_TOP_N: 12000

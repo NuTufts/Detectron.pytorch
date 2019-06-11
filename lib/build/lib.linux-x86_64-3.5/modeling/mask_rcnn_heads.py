@@ -17,6 +17,7 @@ import datasets.dummy_datasets as datasets
 import numpy as np
 import utils.vis as vis_utils
 import cv2
+import time
 
 
 # ---------------------------------------------------------------------------- #
@@ -68,12 +69,23 @@ class mask_rcnn_outputs(nn.Module):
         return mapping, orphan_in_detectron
 
     def forward(self, x):
+        if cfg.SYNCHRONIZE:
+            torch.cuda.synchronize
+            print("Before Mask")
+        t_st = time.time()
+
         x = self.classify(x)
         if cfg.MRCNN.UPSAMPLE_RATIO > 1:
             x = self.upsample(x)
         if not self.training and not self.validation:
             x = torch.sigmoid(x)
             # x = F.sigmoid(x)
+        if cfg.SYNCHRONIZE:
+           torch.cuda.synchronize
+           print("Time taken to do mask forward: %.3f " % (time.time()- t_st))
+           print("After Mask")
+
+
         return x
 
 
@@ -173,6 +185,7 @@ def mask_rcnn_losses(masks_pred, masks_int32):
     num_on  = torch.sum(masks_gt>0).item()
     num_off = torch.sum(masks_gt==0).item()
     num_inv = torch.sum(masks_gt==-1).item()
+
     total_num = num_on+num_off
     dim1, dim2 = masks_gt.shape
     # print('on: ', num_on, " off: ", num_off, " inv: ",num_inv)
@@ -183,8 +196,9 @@ def mask_rcnn_losses(masks_pred, masks_int32):
         num_on=1
 
     weight = weight  * ( (1-masks_gt)*total_num/num_off + (masks_gt)*total_num/num_on )
-
-
+    if synchronize_cuda:
+        torch.cuda.synchronize
+    t_st =time.time()
     # print()
     # # print('masks_gt is type: ', type(masks_gt))
     # print('masks_pred shape is: ', masks_pred.shape)
@@ -217,13 +231,19 @@ def mask_rcnn_losses(masks_pred, masks_int32):
     # print()
     # print()
     # print()
+
     loss = F.binary_cross_entropy_with_logits(
         masks_pred.view(n_rois, -1), masks_gt, weight, reduction='sum')
+    if synchronize_cuda:
+        torch.cuda.synchronize
+        print("Time taken to calc loss: %.3f " % (time.time()- t_st))
     # print()
     # print('loss is type: ', type(loss))
     # print('loss shape is: ', loss.shape)
     # print()
     loss /= total_for_avg
+    if synchronize_cuda:
+    	torch.cuda.synchronize
     return loss * cfg.MRCNN.WEIGHT_LOSS_MASK
 
 
