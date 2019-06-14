@@ -167,7 +167,6 @@ class ResNet_roi_conv5_head(nn.Module):
         res5_feat = self.res5(x)
         # print('res5_feat in RESNET.PY', res5_feat.shape)
         x = self.avgpool(res5_feat)
-        print(self.training, self.validation)
         if cfg.MODEL.SHARE_RES5 and ( self.training or self.validation ):
             return x, res5_feat
         else:

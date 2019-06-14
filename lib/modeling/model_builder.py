@@ -157,6 +157,11 @@ class Generalized_RCNN(nn.Module):
 
     def forward(self, data, im_info, roidb=None, **rpn_kwargs):
 
+        if isinstance(data,list):
+            data = data[0]
+        if isinstance(im_info,list):
+            im_info = im_info[0]
+
 
 
         if cfg.PYTORCH_VERSION_LESS_THAN_040:
