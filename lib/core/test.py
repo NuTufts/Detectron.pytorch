@@ -123,6 +123,7 @@ def im_detect_all(model, im, box_proposals=None, timers=None, use_polygon=True )
         timers['misc_mask'].toc()
     else:
         cls_segms = None
+        round_boxes = None
 
     if cfg.MODEL.KEYPOINTS_ON and boxes.shape[0] > 0:
         timers['im_detect_keypoints'].tic()
