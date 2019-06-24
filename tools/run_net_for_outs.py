@@ -119,6 +119,18 @@ def main():
                 print('load cfg from file: {}'.format("mills_config_"+str(plane)+".yaml"))
                 cfg_from_file("configs/baselines/mills_config_"+str(plane)+".yaml")
                 cfg.MODEL.LOAD_IMAGENET_PRETRAINED_WEIGHTS = False  # Don't need to load imagenet pretrained weights
+
+                height = 1
+                width = 2
+                if io_in.get_n_entries() > 0:
+                    ok = io_in.read_entry(0)
+                    ev_adc = io_in.get_data(larcv.kProductImage2D,adc_producer)
+                    height = ev_adc.Image2DArray().at(0).meta().rows()
+                    width  = ev_adc.Image2DArray().at(0).meta().cols()
+                cfg.TRAIN.SCALES = (height,)
+                cfg.TRAIN.MAX_SIZE = width
+                cfg.TEST.SCALE = height
+                cfg.TEST.MAX_SIZE = width
                 assert_and_infer_cfg(False)
 
                 # ////////////////////////////////////

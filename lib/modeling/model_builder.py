@@ -157,6 +157,11 @@ class Generalized_RCNN(nn.Module):
 
     def forward(self, data, im_info, roidb=None, **rpn_kwargs):
 
+        if isinstance(data,list):
+            data = data[0]
+        if isinstance(im_info,list):
+            im_info = im_info[0]
+
 
 
         if cfg.PYTORCH_VERSION_LESS_THAN_040:
@@ -203,7 +208,10 @@ class Generalized_RCNN(nn.Module):
             return_dict['blob_conv'] = blob_conv
 
         if not cfg.MODEL.RPN_ONLY:
+            if cfg.SYNCHRONIZE:
+                torch.cuda.synchronize
             t_st_bhead = time.time()
+            print("before boxhead")
             if cfg.MODEL.SHARE_RES5 and (self.training or self.validation):
                 box_feat, res5_feat = self.Box_Head(blob_conv, rpn_ret)
             else:
@@ -393,7 +401,7 @@ class Generalized_RCNN(nn.Module):
         #         print('-------------------------------------')
         #         total+=key_time
         # print('Total Forward Pass Sanity Check:', total)
-        
+
 
         return return_dict
 

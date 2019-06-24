@@ -197,6 +197,10 @@ def im_detect_bbox(model, im, target_scale, target_max_size, boxes=None):
         torch.cuda.synchronize
         print("Time from imdetect_bbox to right before model forward call: %.3f"% (time.time()-t_sta))
     return_dict = model(**inputs)
+
+    if isinstance(return_dict['rois'],np.ndarray):
+        return_dict['rois'] = torch.from_numpy(return_dict['rois'])
+
     if cfg.SYNCHRONIZE:
         torch.cuda.synchronize
 

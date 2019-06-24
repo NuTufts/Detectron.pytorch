@@ -193,6 +193,7 @@ def main():
         entry_image2dadc_crop_data = image2d_adc_crop_chain.image2d_adc_branch
         image2dadc_crop_array = entry_image2dadc_crop_data.as_vector()
         im_2d = larcv.as_ndarray(image2dadc_crop_array[cfg.PLANE])
+        print(im_2d.shape)
         height, width = im_2d.shape
         # im = np.zeros ((height,width,3))
         im = np.moveaxis(np.array([np.copy(im_2d),np.copy(im_2d),np.copy(im_2d)]),0,2)
