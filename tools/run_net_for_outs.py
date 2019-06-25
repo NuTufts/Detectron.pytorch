@@ -9,7 +9,7 @@ import sys
 import pprint
 import subprocess
 from collections import defaultdict
-from six.moves import xrange
+# from six.moves import xrange
 
 # Use a non-interactive backend
 import matplotlib
@@ -55,7 +55,7 @@ def parse_args():
     parser.add_argument(
         '--outfile', required=False,
         help="path to out file",
-        default='ubmrcnn.root')
+        default='example_out.root')
 
     parser.add_argument(
         '--num_entries',
@@ -68,6 +68,7 @@ def parse_args():
     return args
 
 def main():
+            start_time = time.time()
             args = parse_args()
             print('Called with args:')
             print(args)
@@ -75,13 +76,13 @@ def main():
             larcv_adc_file = args.infile
             output_larcv_filename = args.outfile
             mrcnn_tree_name  = "masks"
-            adc_producer     = "adc"
+            adc_producer     = "wire"
             tick_backwards = False
             log_protocol = larcv.msg.kNORMAL
             planes = [0,1,2]
-            weight_files = ["/home/jmills/workdir/ubdl/ublarcvserver/app/ubmrcnn/mcc8_mrcnn_plane0.pth",
-                            "/home/jmills/workdir/ubdl/ublarcvserver/app/ubmrcnn/mcc8_mrcnn_plane1.pth",
-                            "/home/jmills/workdir/ubdl/ublarcvserver/app/ubmrcnn/mcc8_mrcnn_plane2.pth"
+            weight_files = ["/cluster/tufts/wongjiradlab/jmills09/ubdl/ublarcvserver/app/ubmrcnn/mcc8_mrcnn_plane0.pth",
+                            "/cluster/tufts/wongjiradlab/jmills09/ubdl/ublarcvserver/app/ubmrcnn/mcc8_mrcnn_plane1.pth",
+                            "/cluster/tufts/wongjiradlab/jmills09/ubdl/ublarcvserver/app/ubmrcnn/mcc8_mrcnn_plane2.pth"
                             ]
 
             # setup the input and output larcv iomanager, input larlite manager
@@ -119,18 +120,10 @@ def main():
                 print('load cfg from file: {}'.format("mills_config_"+str(plane)+".yaml"))
                 cfg_from_file("configs/baselines/mills_config_"+str(plane)+".yaml")
                 cfg.MODEL.LOAD_IMAGENET_PRETRAINED_WEIGHTS = False  # Don't need to load imagenet pretrained weights
-
-                height = 1
-                width = 2
-                if io_in.get_n_entries() > 0:
-                    ok = io_in.read_entry(0)
-                    ev_adc = io_in.get_data(larcv.kProductImage2D,adc_producer)
-                    height = ev_adc.Image2DArray().at(0).meta().rows()
-                    width  = ev_adc.Image2DArray().at(0).meta().cols()
-                cfg.TRAIN.SCALES = (height,)
-                cfg.TRAIN.MAX_SIZE = width
-                cfg.TEST.SCALE = height
-                cfg.TEST.MAX_SIZE = width
+                cfg.TEST.RPN_PRE_NMS_TOP_N = 6000
+                cfg.TEST.RPN_POST_NMS_TOP_N = 1000
+                cfg.TEST.SCALE = 1008
+                cfg.TEST.MAX_SIZE = 3456
                 assert_and_infer_cfg(False)
 
                 # ////////////////////////////////////
@@ -172,7 +165,7 @@ def main():
                     run    = io_in.event_id().run()
                     subrun = io_in.event_id().subrun()
                     event  = io_in.event_id().event()
-                    # print("num of planes in entry {}: ".format((run,subrun,event)),nplanes)
+                    print("num of planes in entry {}: ".format((run,subrun,event)),nplanes)
 
                     # define the roi_v images
                     # img2d_v = {}
@@ -193,7 +186,7 @@ def main():
 
                     assert im is not None
                     thresh = 0.7
-                    # print("Using a score threshold of 0.7 to cut boxes. Hard Coded")
+                    print("Using a score threshold of 0.7 to cut boxes. Hard Coded")
                     clustermasks_this_img = []
                     cls_boxes, cls_segms, cls_keyps, round_boxes = im_detect_all(model, im, timers=None, use_polygon=False)
                     np.set_printoptions(suppress=True)
@@ -218,6 +211,7 @@ def main():
 
                                 clustermasks_this_img.append(larcv.as_clustermask(segm_np, round_box, meta, np.array([cls_boxes[cls][roi][4]], dtype=np.float32)))
                                 nmasks = nmasks+1
+                    print("Nmasks!",nmasks)
 # End of make reply
                     ev_clustermasks = io_out.\
                                     get_data(larcv.kProductClusterMask,
@@ -233,6 +227,7 @@ def main():
                     io_out.set_id( io_in.event_id().run(),
                                        io_in.event_id().subrun(),
                                        io_in.event_id().event())
+                    print("SAVING ENTRY")
                     io_out.save_entry()
 
                     # End of the Worker
@@ -251,6 +246,7 @@ def main():
                 nentries = io_in.get_n_entries()
 
             for entry_num in range(nentries):
+                print("    Recombine Entry:", entry_num)
                 for plane in planes:
                     ok = ios_in[plane].read_entry(entry_num)
                     if not ok:
@@ -278,11 +274,9 @@ def main():
 
 
             io_out_final.finalize()
-            for plane in planes:
-                os.remove("plane_"+str(plane)+".root")
-
-
-
+            end_time = time.time()
+            print("Finished! Took %.3f" % (end_time - start_time), " Seconds")
+            print(" %.3f" % ((end_time - start_time)/nentries), " Seconds/Event")
 
 
 
