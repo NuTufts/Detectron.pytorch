@@ -33,7 +33,10 @@ from __future__ import unicode_literals
 from collections import defaultdict
 import cv2
 import numpy as np
-import pycocotools.mask as mask_util
+try:
+    import pycocotools.mask as mask_util
+except:
+    __has_coco_tools__ = False
 
 from torch.autograd import Variable
 import torch

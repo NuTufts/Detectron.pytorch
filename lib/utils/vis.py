@@ -26,7 +26,10 @@ from __future__ import unicode_literals
 import cv2
 import numpy as np
 import os
-import pycocotools.mask as mask_util
+try:
+    import pycocotools.mask as mask_util
+except:
+    pass
 
 from utils.colormap import colormap
 import utils.keypoints as keypoint_utils

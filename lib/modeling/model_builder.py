@@ -79,7 +79,7 @@ def check_inference(net_func):
 
 class Generalized_RCNN(nn.Module):
     def __init__(self, validation=False):
-        super().__init__()
+        super(Generalized_RCNN,self).__init__()
 
         # For Validation
         self.validation =validation
@@ -97,7 +97,8 @@ class Generalized_RCNN(nn.Module):
 
         # Backbone for feature extraction
         self.Conv_Body = get_func(cfg.MODEL.CONV_BODY)()
-
+        print type(self.Conv_Body.spatial_scale)
+        
         # Region Proposal Network
         if cfg.RPN.RPN_ON:
             self.RPN = rpn_heads.generic_rpn_outputs(

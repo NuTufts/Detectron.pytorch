@@ -1,3 +1,5 @@
+from __future__ import division
+
 import torch
 from torch import nn
 from torch.nn import init
@@ -39,10 +41,11 @@ def generic_rpn_losses(*inputs, **kwargs):
 class single_scale_rpn_outputs(nn.Module):
     """Add RPN outputs to a single scale model (i.e., no FPN)."""
     def __init__(self, dim_in, spatial_scale, validation=False):
-        super().__init__()
+        super(single_scale_rpn_outputs,self).__init__()
         self.validation = validation
         self.dim_in = dim_in
         self.dim_out = dim_in if cfg.RPN.OUT_DIM_AS_IN_DIM else cfg.RPN.OUT_DIM
+        print "spatial scale: ",spatial_scale
         anchors = generate_anchors(
             stride=1. / spatial_scale,
             sizes=cfg.RPN.SIZES,
