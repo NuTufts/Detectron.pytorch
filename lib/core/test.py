@@ -31,7 +31,6 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 from collections import defaultdict
-import cv2
 import numpy as np
 try:
     import pycocotools.mask as mask_util
@@ -52,8 +51,11 @@ import utils.keypoints as keypoint_utils
 #to Vis
 import datasets.dummy_datasets as datasets
 import utils.vis as vis_utils
-import cv2
-from scipy import sparse
+try:
+    import cv2
+    from scipy import sparse
+except:
+    pass
 
 #to purity efficiency
 from datasets.larcvdataset import IoU

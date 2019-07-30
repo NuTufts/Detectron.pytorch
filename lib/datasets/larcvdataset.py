@@ -14,7 +14,10 @@ from six.moves import cPickle as pickle
 import logging
 import numpy as np
 import os
-import scipy.sparse
+try:
+    import scipy.sparse
+except:
+    pass
 
 # Must happen before importing COCO API (which imports matplotlib)
 import utils.env as envu
@@ -42,7 +45,10 @@ import numpy as np
 from torch.utils.data import Dataset
 #new imports:
 import cv2
-import matplotlib.pyplot as pl
+try:
+    import matplotlib.pyplot as plt
+except:
+    pass
 
 
 logger = logging.getLogger(__name__)
