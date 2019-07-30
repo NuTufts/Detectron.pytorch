@@ -38,7 +38,10 @@ import numpy as np
 from torch.utils.data import Dataset
 #new imports:
 import cv2
-import torchvision
+try:
+    import torchvision
+except:
+    pass
 
 
 def add_mask_rcnn_blobs(blobs, sampled_boxes, roidb, im_scale, batch_idx):

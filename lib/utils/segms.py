@@ -28,7 +28,10 @@ from __future__ import unicode_literals
 
 import numpy as np
 
-import pycocotools.mask as mask_util
+try:
+  import pycocotools.mask as mask_util
+except:
+  pass
 
 
 def flip_segms(segms, height, width):

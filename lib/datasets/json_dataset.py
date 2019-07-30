@@ -36,8 +36,11 @@ import scipy.sparse
 import utils.env as envu
 envu.set_up_matplotlib()
 # COCO API
-from pycocotools import mask as COCOmask
-from pycocotools.coco import COCO
+try:
+    from pycocotools import mask as COCOmask
+    from pycocotools.coco import COCO
+except:
+    pass
 
 import utils.boxes as box_utils
 from core.config import cfg

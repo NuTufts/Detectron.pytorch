@@ -14,14 +14,20 @@ from six.moves import cPickle as pickle
 import logging
 import numpy as np
 import os
-import scipy.sparse
+try:
+    import scipy.sparse
+except:
+    pass
 
 # Must happen before importing COCO API (which imports matplotlib)
 import utils.env as envu
 envu.set_up_matplotlib()
 # COCO API
-from pycocotools import mask as COCOmask
-from pycocotools.coco import COCO
+try:
+    from pycocotools import mask as COCOmask
+    from pycocotools.coco import COCO
+except:
+    pass
 
 import utils.boxes as box_utils
 from core.config import cfg
@@ -39,7 +45,10 @@ import numpy as np
 from torch.utils.data import Dataset
 #new imports:
 import cv2
-import matplotlib.pyplot as pl
+try:
+    import matplotlib.pyplot as plt
+except:
+    pass
 
 
 logger = logging.getLogger(__name__)

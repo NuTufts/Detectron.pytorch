@@ -10,7 +10,7 @@ import copy
 from ast import literal_eval
 
 import numpy as np
-from packaging import version
+#from packaging import version
 import torch
 import torch.nn as nn
 from torch.nn import init
@@ -1049,7 +1049,8 @@ def assert_and_infer_cfg(make_immutable=True):
             "Path to the weight file must not be empty to load imagenet pertrained resnets."
     if set([__C.MRCNN.ROI_MASK_HEAD, __C.KRCNN.ROI_KEYPOINTS_HEAD]) & _SHARE_RES5_HEADS:
         __C.MODEL.SHARE_RES5 = True
-    if version.parse(torch.__version__) < version.parse('0.4.0'):
+    #if version.parse(torch.__version__) < version.parse('0.4.0'):
+    if False:
         __C.PYTORCH_VERSION_LESS_THAN_040 = True
         # create alias for PyTorch version less than 0.4.0
         init.uniform_ = init.uniform

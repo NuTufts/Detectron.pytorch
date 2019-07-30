@@ -26,18 +26,24 @@ from __future__ import unicode_literals
 import cv2
 import numpy as np
 import os
-import pycocotools.mask as mask_util
+try:
+    import pycocotools.mask as mask_util
+except:
+    pass
 
 from utils.colormap import colormap
 import utils.keypoints as keypoint_utils
 
 # Use a non-interactive backend
-import matplotlib
-matplotlib.use('Agg')
-import matplotlib.pyplot as plt
-from matplotlib.patches import Polygon
+try:
+    import matplotlib
+    matplotlib.use('Agg')
+    import matplotlib.pyplot as plt
+    from matplotlib.patches import Polygon
+    plt.rcParams['pdf.fonttype'] = 42  # For editing in Adobe Illustrator
+except:
+    pass
 
-plt.rcParams['pdf.fonttype'] = 42  # For editing in Adobe Illustrator
 
 
 _GRAY = (218, 227, 218)

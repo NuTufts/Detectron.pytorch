@@ -1,3 +1,6 @@
+from __future__ import absolute_import
+from __future__ import division
+
 import logging
 import numpy as np
 
@@ -13,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 class GenerateProposalsOp(nn.Module):
     def __init__(self, anchors, spatial_scale, validation=False):
-        super().__init__()
+        super(GenerateProposalsOp,self).__init__()
         self._anchors = anchors
         self._num_anchors = self._anchors.shape[0]
         self._feat_stride = 1. / spatial_scale

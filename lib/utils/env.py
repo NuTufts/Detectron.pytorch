@@ -39,9 +39,12 @@ def get_py_bin_ext():
 
 def set_up_matplotlib():
     """Set matplotlib up."""
-    import matplotlib
-    # Use a non-interactive backend
-    matplotlib.use('Agg')
+    try:
+        import matplotlib
+        # Use a non-interactive backend
+        matplotlib.use('Agg')
+    except:
+        pass
 
 
 def exit_on_error():
