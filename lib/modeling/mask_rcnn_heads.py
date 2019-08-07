@@ -19,8 +19,11 @@ import utils.net as net_utils
 import datasets.dummy_datasets as datasets
 import numpy as np
 import utils.vis as vis_utils
-import cv2
 import time
+try:
+    import cv2
+except:
+    pass
 
 
 # ---------------------------------------------------------------------------- #

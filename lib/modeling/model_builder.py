@@ -22,10 +22,13 @@ import utils.resnet_weights_helper as resnet_utils
 import datasets.dummy_datasets as datasets
 import numpy as np
 import utils.vis as vis_utils
-import cv2
 from core.test import segm_results
-
 import time
+
+try:
+    import cv2
+except:
+    pass
 
 
 logger = logging.getLogger(__name__)

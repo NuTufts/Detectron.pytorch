@@ -21,12 +21,16 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 from collections import defaultdict
-import cv2
 import datetime
 import logging
 import numpy as np
 import os
 import yaml
+
+try:
+    import cv2
+except:
+    pass
 
 import torch
 

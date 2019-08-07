@@ -29,7 +29,10 @@ from __future__ import unicode_literals
 
 from six.moves import cPickle as pickle
 import numpy as np
-import cv2
+try:
+    import cv2
+except:
+    pass
 
 from core.config import cfg
 
@@ -37,7 +40,7 @@ from core.config import cfg
 import datasets.dummy_datasets as datasets
 import numpy as np
 # import utils.vis as vis_utils
-import cv2
+#import cv2
 
 
 def get_image_blob(im, target_scale, target_max_size):

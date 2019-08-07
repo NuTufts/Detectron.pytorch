@@ -44,8 +44,8 @@ from larcv import larcv
 import numpy as np
 from torch.utils.data import Dataset
 #new imports:
-import cv2
 try:
+    import cv2
     import matplotlib.pyplot as plt
 except:
     pass
