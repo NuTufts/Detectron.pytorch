@@ -1055,6 +1055,8 @@ def _get_blobs(im, rois, target_scale, target_max_size):
         blob_utils.get_image_blob(im, target_scale, target_max_size)
     if rois is not None:
         blobs['rois'] = _get_rois_blob(rois, im_scale)
+    if cfg.DATAFORMAT == 'sparse':
+        blobs['data'] = np.expand_dims(blobs['data'], 0)
     return blobs, im_scale
 
 def efficiency_calculation(gt_box, gt_mask, pred_boxes, pred_masks, adc_image):

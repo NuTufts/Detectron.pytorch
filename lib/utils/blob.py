@@ -51,10 +51,17 @@ def get_image_blob(im, target_scale, target_max_size):
         im_scale (float): image scale (target size) / (original size)
         im_info (ndarray)
     """
-    processed_im, im_scale = prep_im_for_blob(
-        im, cfg.PIXEL_MEANS, [target_scale], target_max_size
-    )
-    blob = im_list_to_blob(processed_im)
+    # See minibatch, got rid of this
+    # processed_im, im_scale = prep_im_for_blob(
+    #     im, cfg.PIXEL_MEANS, [target_scale], target_max_size
+    # )
+    processed_im = im
+    im_scale = target_scale
+    if cfg.DATAFORMAT == 'sparse':
+        idx = 0
+        blob = processed_im
+    else:
+        blob = im_list_to_blob(processed_im)
     # NOTE: this height and width may be larger than actual scaled input image
     # due to the FPN.COARSEST_STRIDE related padding in im_list_to_blob. We are
     # maintaining this behavior for now to make existing results exactly
@@ -62,7 +69,8 @@ def get_image_blob(im, target_scale, target_max_size):
     # yields nearly the same results, but they are sometimes slightly different
     # because predictions near the edge of the image will be pruned more
     # aggressively).
-    height, width = blob.shape[2], blob.shape[3]
+    print(blob.shape, "blob shape")
+    height, width = cfg.TEST.SCALE, cfg.TEST.MAX_SIZE
     im_info = np.hstack((height, width, im_scale))[np.newaxis, :]
     return blob, im_scale, im_info.astype(np.float32)
 

@@ -40,7 +40,7 @@ class fast_rcnn_outputs(nn.Module):
 
     def forward(self, x):
         t_st = time.time()
-        
+
         if cfg.SYNCHRONIZE:
             torch.cuda.synchronize
             print('Before BoxClass')
@@ -65,6 +65,9 @@ def fast_rcnn_losses(cls_score, bbox_pred, label_int32, bbox_targets,
     else:
         device_id = 'cpu'
     rois_label = Variable(torch.from_numpy(label_int32.astype('int64'))).to(torch.device(device_id))
+    class_weights = torch.ones(cls_score.shape[1])
+    # print("weights", class_weights)
+    # class_weights[5] = 9
     loss_cls = F.cross_entropy(cls_score, rois_label)
 
     bbox_targets = Variable(torch.from_numpy(bbox_targets)).to(torch.device(device_id))
@@ -82,18 +85,37 @@ def fast_rcnn_losses(cls_score, bbox_pred, label_int32, bbox_targets,
     #new
     numerator   = (( rois_label > 0 ).float() * cls_preds.eq(rois_label).float() ).float().sum(dim=0).float()
     denominator = (rois_label > 0 ).float().sum(dim=0).float()
+
+    num_cosm = (( rois_label == 1 ).float() * cls_preds.eq(rois_label).float() ).float().sum(dim=0).float()
+    num_neut = (( rois_label == 5 ).float() * cls_preds.eq(rois_label).float() ).float().sum(dim=0).float()
+    den_cosm = (rois_label == 1 ).float().sum(dim=0).float()
+    den_neut = (rois_label == 5 ).float().sum(dim=0).float()
+    # print("number true _neut", den_neut)
+    # print("number true _cosm", den_cosm)
+
     # print("My Accuracy: ", numerator/denominator.item())
     # print("Numerator: ", numerator.item())
     # print("Denominator: ", denominator.item())
 
     accuracy_cls = numerator/denominator
+    accuracy_cosm = -1
+    accuracy_neut = -1
+    if den_neut != 0:
+        print("Neutrino in this event!")
+        print("num_neut", num_neut)
+        print("den_neut", den_neut)
+
+        accuracy_neut = num_neut/den_neut
+    if den_cosm != 0:
+        accuracy_cosm = num_cosm/den_cosm
+
     # accuracy_cls = cls_preds.eq(rois_label).float().mean(dim=0)
     # original
     # accuracy_cls = cls_preds.eq(rois_label).float().mean(dim=0)
 
 
 
-    return loss_cls, loss_bbox, accuracy_cls
+    return loss_cls, loss_bbox, accuracy_cls, accuracy_neut, accuracy_cosm
 
 
 # ---------------------------------------------------------------------------- #

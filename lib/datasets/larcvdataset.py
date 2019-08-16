@@ -189,7 +189,7 @@ class LArCVDataset(object):
 
         _files = []
         if cfg.DATAFORMAT == "sparse":
-            _files = ['/home/jmills/workdir/sparse_mask/smask-rcnn/sparse_crop_train1_ev.root']
+            _files = ['/media/disk1/jmills/sparse_crop_train/sparse_crop_train1.root']
         elif cfg.DATAFORMAT == "full":
             _files = ['/home/jmills/workdir/full_image/larcv_mask.root']
         elif cfg.DATAFORMAT == "crop":
@@ -236,7 +236,7 @@ class LArCVDataset(object):
         assert image2d_adc_crop_chain.GetEntries() == clustermask_cluster_crop_chain.GetEntries()
 
         self.NUM_IMAGES=clustermask_cluster_crop_chain.GetEntries()
-        self.NUM_IMAGES=10
+        # self.NUM_IMAGES=100
         # self.NUM_IMAGES=clustermask_cluster_crop_chain.GetEntries() - 154000
 
 
@@ -319,6 +319,8 @@ class LArCVDataset(object):
         orig_length = len(roidb)
         if thresh >= 0.0:
             roidb = _cull_roidb_iou(roidb, thresh)
+        if False:
+            roidb = _cull_roidb_neutrinos(roidb)
         t1 = time.time()
         total = t1-t0
         print("Original Roidb lenth: ", orig_length)
@@ -535,7 +537,7 @@ class LArCVDataset(object):
         with open(cache_filepath, 'rb') as fp:
             cached_roidb = pickle.load(fp)
 
-        # print(len(roidb), len(cached_roidb))
+        print(len(roidb), len(cached_roidb))
         assert len(roidb) == len(cached_roidb)
 
         for entry, cached_entry in zip(roidb, cached_roidb):
@@ -983,4 +985,22 @@ def _cull_roidb_iou(roidb, thresh=0.0):
     print('Above 0.9: ',num_above_9)
 
 
+    return new_roidb
+
+def _cull_roidb_neutrinos(roidb, nu_events_desired=-1):
+    """This function takes in the roidb as a list of dictionaries
+    and number of neutrino events desired, and cuts the roidb to only
+    include entries with neutrino boxes, with a size of nu_desired. -1 means
+    include all neutrino events"""
+
+    new_roidb =[]
+    for entry in roidb:
+        if 5 in entry['gt_classes']:
+            new_roidb.append(entry)
+        if len(new_roidb) == nu_events_desired:
+            break
+
+
+
+    print("Culled  roidb to contain", len(new_roidb), "entries each with at least one neutrino box.")
     return new_roidb

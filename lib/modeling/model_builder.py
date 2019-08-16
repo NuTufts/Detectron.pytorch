@@ -96,7 +96,7 @@ class Generalized_RCNN(nn.Module):
         self.orphans_in_detectron = None
 
         # Backbone for feature extraction
-        self.Conv_Body = get_func(cfg.MODEL.CONV_BODY)()
+        self.Conv_Body = get_func(cfg.MODEL.CONV_BODY)().to(torch.device(cfg.MODEL.DEVICE))
         # Originally self.Conv_Body.spatial_scale and self.Conv_Body.dim_out
         conv_spatial_scale = 1./16.
         conv_dim_out = 1024
@@ -163,8 +163,6 @@ class Generalized_RCNN(nn.Module):
 
     def forward(self, data, im_info, roidb=None, **rpn_kwargs):
 
-
-
         if cfg.PYTORCH_VERSION_LESS_THAN_040:
             return self._forward(data, im_info, roidb, **rpn_kwargs)
         else:
@@ -191,7 +189,7 @@ class Generalized_RCNN(nn.Module):
         # print("Performing Conv Body of RESNET")
         # print()
         # print()
-        # print(im_data.shape, "im_data.shape")
+        print(im_data.shape, "im_data.shape")
         # print(im_data[0][0][0], im_data[0][0][1], im_data[0][0][2])
 
         blob_conv = 0
@@ -206,7 +204,18 @@ class Generalized_RCNN(nn.Module):
             torch.cuda.synchronize
         t_st_here = time.time()
         if cfg.DATAFORMAT == 'sparse':
-
+            # print(self.Conv_Body.state_dict())
+            # print()
+            # # print(self.Conv_Body.state_dict()['2.0.weight'])
+            # # for module in self.Conv_Body.children():
+            # #     for param in module.named_parameters():
+            # #         if param[0] == '20.weight':
+            # #             print(param)
+            # #             for i in range(5):
+            # #                 print(param[1][i].item())
+            #
+            #
+            # print()
             blob_conv = self.Conv_Body((im_coords,im_values))
         else:
             blob_conv = self.Conv_Body(im_data)
@@ -246,7 +255,11 @@ class Generalized_RCNN(nn.Module):
                 torch.cuda.synchronize
                 print("Time taken to boxhead: %.3f " % (time.time() - t_st_bhead))
             cls_score, bbox_pred = self.Box_Outs(box_feat)
-
+            # print(cls_score.shape)
+            # print(cls_score)
+            # print()
+            # print(bbox_pred.shape)
+            # print(bbox_pred)
         else:
             # TODO: complete the returns for RPN only situation
             pass
@@ -275,12 +288,16 @@ class Generalized_RCNN(nn.Module):
             # self.timers['rpn_losses'] += time.time() - relative_time
             relative_time =time.time()
             # bbox loss
-            loss_cls, loss_bbox, accuracy_cls = fast_rcnn_heads.fast_rcnn_losses(
+            loss_cls, loss_bbox, accuracy_cls, accuracy_neut, accuracy_cosm = fast_rcnn_heads.fast_rcnn_losses(
                 cls_score, bbox_pred, rpn_ret['labels_int32'], rpn_ret['bbox_targets'],
                 rpn_ret['bbox_inside_weights'], rpn_ret['bbox_outside_weights'])
             return_dict['losses']['loss_cls'] = loss_cls
             return_dict['losses']['loss_bbox'] = loss_bbox
             return_dict['metrics']['accuracy_cls'] = accuracy_cls
+            if accuracy_neut != -1:
+                return_dict['metrics']['accuracy_neut'] = accuracy_neut
+            if accuracy_cosm != -1:
+                return_dict['metrics']['accuracy_cosm'] = accuracy_cosm
             # self.timers['bbox_cls_loss'] += time.time() - relative_time
             relative_time =time.time()
 

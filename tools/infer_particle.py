@@ -201,45 +201,42 @@ def main():
         print('img', i)
         image2d_adc_crop_chain.GetEntry(i)
         entry_image2dadc_crop_data=0
+        image2dadc_crop_array=0
+
         if cfg.DATAFORMAT == "sparse":
-            entry_image2dadc_crop_data = image2d_adc_crop_chain.image2d_adc_sparse_branch
+            entry_image2dadc_crop_data = image2d_adc_crop_chain.sparseimage_adc_sparse_branch
+            image2dadc_crop_array = entry_image2dadc_crop_data.SparseImageArray()
         elif cfg.DATAFORMAT == "crop":
             entry_image2dadc_crop_data = image2d_adc_crop_chain.image2d_adc_branch
+            image2dadc_crop_array = entry_image2dadc_crop_data.as_vector()
         elif cfg.DATAFORMAT == "full":
             entry_image2dadc_crop_data = image2d_adc_crop_chain.image2d_wire_branch
+            image2dadc_crop_array = entry_image2dadc_crop_data.as_vector()
+
         else:
             assert 1==2
             # Mistakes were made
-        image2dadc_crop_array = entry_image2dadc_crop_data.as_vector()
-        im_2d = larcv.as_ndarray(image2dadc_crop_array[cfg.PLANE])
-        height, width = im_2d.shape
-        # im = np.zeros ((height,width,3))
-        im = np.moveaxis(np.array([np.copy(im_2d),np.copy(im_2d),np.copy(im_2d)]),0,2)
-        im_visualize = np.zeros ((height,width,3), 'float32')
-        t_data_loaded = time.time()
-        # print('height: ',roidb[i]['height'] , "     dim1: ",len(im_2d))
-        # print('width: ',roidb[i]['width'] , "     dim2: ",len(im_2d[0]))
+        im_2d = None
+        im = None
+        height = 0
+        width = 0
+        if cfg.DATAFORMAT != 'sparse':
+            im_2d = larcv.as_ndarray(image2dadc_crop_array[cfg.PLANE])
+            print(im_2d)
+            height, width = im_2d.shape
+            im = np.moveaxis(np.array([np.copy(im_2d),np.copy(im_2d),np.copy(im_2d)]),0,2)
+            im_visualize = np.zeros ((height,width,3), 'float32')
+            im[im < 0] = 0
+            im[im > 255] = 250
+        else:
+            im = larcv.as_ndarray(image2dadc_crop_array.at(cfg.PLANE),2)
+            height = image2dadc_crop_array.at(cfg.PLANE).meta_v().at(0).rows()
+            width = image2dadc_crop_array.at(cfg.PLANE).meta_v().at(0).cols()
 
-        # for dim1 in range(len(im_2d)):
-        #     for dim2 in range(len(im_2d[0])):
-        #         value = im_2d[dim1][dim2]
-        #         im[dim1][dim2][:] = value
-        #
-        #         if value > 255:
-        #             value2 =250
-        #         elif value < 0:
-        #             value2 =0
-        #         else:
-        #             value2  = value
-        #         im_visualize[dim1][dim2][:]= value2
-        im[im < 0] = 0
-        im[im > 255] = 250
-        # np.set_printoptions(threshold=np.inf, precision=0, suppress=True)
-        # print('start')
-        # print(im[0:100,0:100,0])
-        # print('stop')
-        # im = cv2.imread(file_list[i])
+            im[im < 0] = 0
+            im[im > 250] = 250
         assert im is not None
+        t_data_loaded = time.time()
 
         timers = defaultdict(Timer)
         t_before_detect = time.time()
@@ -250,7 +247,7 @@ def main():
         if cfg.SYNCHRONIZE:
             torch.cuda.synchronize
         # print(prof)
-
+        print(cls_boxes)
         print(len(cls_boxes[1]), "Boxes Made with Scores")
         t_after_detect = time.time()
         count_above =0
@@ -280,22 +277,22 @@ def main():
                     for ii,jj,vv in zip(segm_coo.row, segm_coo.col, segm_coo.data):
                         im_vis2[add_y + ii][add_x + jj][:] = 1.0*roi
         t_before_vis = time.time()
-        # vis_utils.vis_one_image(
-        #     im_vis2[:, :, ::-1],  # BGR -> RGB for visualization
-        #     "cpu_mode"+str(i),
-        #     args.output_dir,
-        #     cls_boxes,
-        #     None,
-        #     cls_keyps,
-        #     dataset=dataset,
-        #     box_alpha=0.3,
-        #     show_class=True,
-        #     thresh=0.7,
-        #     kp_thresh=2,
-        #     no_adc=False,
-        #     entry=i,
-        #
-        # )
+        vis_utils.vis_one_image(
+            im_vis2[:, :, ::-1],  # BGR -> RGB for visualization
+            "cpu_mode"+str(i),
+            args.output_dir,
+            cls_boxes,
+            None,
+            cls_keyps,
+            dataset=dataset,
+            box_alpha=0.3,
+            show_class=True,
+            thresh=0.7,
+            kp_thresh=2,
+            no_adc=False,
+            entry=i,
+
+        )
 
 
         # im_name, _ = os.path.splitext(os.path.basename(file_list[0]))

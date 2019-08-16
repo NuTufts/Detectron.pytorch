@@ -27,10 +27,12 @@ def ResNet50_conv4_body_sparse():
         print()
         print("SPARSE RESNET HERE!")
         print()
-        return  scn.Sequential(scn.InputLayer(2, (cfg.TRAIN.SCALES[0],cfg.TRAIN.MAX_SIZE), 0),
+        resnet = scn.Sequential(scn.InputLayer(2, (cfg.TRAIN.SCALES[0],cfg.TRAIN.MAX_SIZE), 0),
                 scn.MaxPooling(2,16,16),
                 scn.SparseResNet(2,1,[['basic',64,2,1],['basic',256,2,1],['basic',512,2,1],['basic',1024,2,1],]),
                 scn.SparseToDense(2,1024))
+
+        return  resnet
                 # scn.OutputLayer(2))
     # return ResNet_convX_body_sparse((3, 4, 6))
     return ResNet_convX_body((3, 4, 6))

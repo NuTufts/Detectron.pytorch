@@ -38,24 +38,25 @@ import cv2
 import time
 import random
 import sparseconvnet as scn
-coord  = np.random.randint(1,510,size=(9317,2))
-values = np.random.random_sample(size=(9317,1))
+# original 9317
+coord  = np.random.randint(1,510,size=(1000,2))
+values = np.random.random_sample(size=(1000,1))
 img = np.zeros((1,3,512,832),dtype=np.float32)
 print(img.shape)
 for idx in range(values.shape[0]):
     img[0,:,coord[idx][0],coord[idx][1]] = values[idx][0]
-device_sparse = 'cpu'
-device_dense = 'cpu'
+device_sparse = 'cuda:0'
+device_dense = 'cuda:0'
 
 img_coords = torch.from_numpy(coord).type(torch.LongTensor).to(torch.device(device_sparse))
 img_values = torch.from_numpy(values).type(torch.FloatTensor).to(torch.device(device_sparse))
 img_torch = torch.from_numpy(img).to(torch.device(device_dense))
 
 
-RESNET = scn.Sequential(scn.InputLayer(2, (512,832), 0),
-        scn.MaxPooling(2,16,16),
-        scn.SparseResNet(2,1,[['basic',64,2,1],['basic',256,2,1],['basic',512,2,1],['basic',1024,2,1],]),
-        scn.SparseToDense(2,1024)).to(torch.device(device_sparse))
+# RESNET = scn.Sequential(scn.InputLayer(2, (512,832), 0),
+#         scn.MaxPooling(2,16,16),
+#         scn.SparseResNet(2,1,[['basic',64,2,1],['basic',256,2,1],['basic',512,2,1],['basic',1024,2,1],]),
+#         scn.SparseToDense(2,1024)).to(torch.device(device_sparse))
 # Sparse ResNet
 input = scn.InputLayer(2, (512,832), 0).to(torch.device(device_sparse))
 max_pool = scn.MaxPooling(2,16,16).to(torch.device(device_sparse))
