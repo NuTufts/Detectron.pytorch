@@ -203,6 +203,8 @@ class LArCVDataset(object):
 
         self.NUM_IMAGES=clustermask_cluster_crop_chain.GetEntries()
         self.NUM_IMAGES=77000
+        # self.NUM_IMAGES=clustermask_cluster_crop_chain.GetEntries() - 154000
+
 
         self.SPECIFIC_IMAGE_START=0
 
@@ -211,11 +213,11 @@ class LArCVDataset(object):
             dict = {
                 "height":                   512,
                 "width":                    832,
-                "coco_url":                 'https://bellenot.web.cern.ch/bellenot/images/logo_full-plus-text-hor2.png',
-                "flickr_url":               'https://bellenot.web.cern.ch/bellenot/images/logo_full-plus-text-hor2.png',
+                # "coco_url":                 'https://bellenot.web.cern.ch/bellenot/images/logo_full-plus-text-hor2.png',
+                # "flickr_url":               'https://bellenot.web.cern.ch/bellenot/images/logo_full-plus-text-hor2.png',
                 "id":                       entry,
                 "image":                    _files[0],
-                "date_captured":             'Tomorrow',
+                # "date_captured":             'Tomorrow',
                 "license":                  3,
                 "plane":                    self.plane,
                 "chain_adc":                image2d_adc_crop_chain,

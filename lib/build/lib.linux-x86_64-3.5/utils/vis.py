@@ -135,6 +135,7 @@ def vis_one_image(
     if boxes is None or boxes.shape[0] == 0 or max(boxes[:, 4]) < thresh:
         return
 
+
     if segms is not None:
         masks = mask_util.decode(segms)
 
