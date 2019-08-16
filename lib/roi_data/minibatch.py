@@ -89,11 +89,11 @@ def _get_image_blob(roidb):
         entry_image2dadc_crop_data = image2d_adc_crop_chain.image2d_adc_branch
         image2dadc_crop_array = entry_image2dadc_crop_data.as_vector()
         # im_2d = larcv.as_ndarray(image2dadc_crop_array[roidb[i]['plane']])
-        im_2d = larcv.as_ndarray(image2dadc_crop_array[cfg.PLANE])
+        im_2d = np.transpose(larcv.as_ndarray(image2dadc_crop_array[cfg.PLANE]))
 
         im = np.zeros ((roidb[i]['height'],roidb[i]['width'],3))
 
-
+        print(im.shape, im_2d.shape)
         for dim1 in range(len(im_2d)):
             for dim2 in range(len(im_2d[0])):
                 im[dim1][dim2][:] = im_2d[dim1][dim2]

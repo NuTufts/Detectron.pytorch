@@ -49,7 +49,7 @@ class LArCVDataset(object):
 
     def __init__(self, name):
 
-        from larcv.dataloader2 import larcv_threadio
+        # from larcv.dataloader2 import larcv_threadio
         assert name in DATASETS.keys(), \
             'Unknown dataset name: {}'.format(name)
         assert os.path.exists(DATASETS[name][IM_DIR]), \
@@ -186,10 +186,10 @@ class LArCVDataset(object):
         ###Try making my own Roidb using root file
         ###
         roidb = []
-        # _files = ['/home/jmills/workdir/mask-rcnn.pytorch/data/particle_physics_train/root_files/croppedmask_lf_001.root']
-        _files = ['/media/disk1/jmills/crop_mask_train/crop_train1.root']
+        # _files = ['/media/disk1/jmills/crop_mask_train/crop_train1.root']
+        _files = ['/media/disk1/jmills/mcc9_nue_crop_train/crop_train.root']
         if self.validation == True:
-            _files = ['/media/disk1/jmills/crop_mask_valid/crop_valid.root']
+            _files = ['/media/disk1/jmills/mcc9_nue_crop_valid/crop_valid.root']
         # _f = ROOT.TFile(_files[0])
         image2d_adc_crop_chain = ROOT.TChain("image2d_adc_tree")
         clustermask_cluster_crop_chain = ROOT.TChain("clustermask_masks_tree")
@@ -300,7 +300,7 @@ class LArCVDataset(object):
         # Reference back to the parent dataset
         entry['dataset'] = self
         # Make image file exists
-        assert os.path.exists(entry['image']), 'Image \'{}\' not found'.format(im_path)
+        assert os.path.exists(entry['image']), 'Image \'{}\' not found'.format(entry['image'])
         entry['flipped'] = False
         entry['has_visible_keypoints'] = False
         # Empty placeholders

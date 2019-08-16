@@ -187,16 +187,7 @@ def im_detect_bbox(model, im, target_scale, target_max_size, boxes=None):
     # print('------------------')
     # print()
     return_dict = model(**inputs)
-<<<<<<< HEAD
-    # for k,v in return_dict.items():
-    #     print("key:", k)
-    #     print("type v", type(v))
-    #     if isinstance(v,dict):
-    #         for k2,v2 in v.items():
-    #             print("key:", k2)
-    #             print("type v", type(v2))
-=======
->>>>>>> a4cc6aabe66d952e9810e75e23569f67f4b8760c
+
     if cfg.MODEL.FASTER_RCNN:
         rois = return_dict['rois'].data.cpu().numpy()
 

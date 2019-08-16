@@ -6,7 +6,7 @@ MODEL:
   MASK_ON: True
 RESNETS:
   IMAGENET_PRETRAINED_WEIGHTS: 'data/pretrained_model/resnet50_caffe.pth'
-NUM_GPUS: 2
+NUM_GPUS: 1
 PLANE: 2
 SOLVER:
   WEIGHT_DECAY: 0.0001
@@ -15,7 +15,7 @@ SOLVER:
   #was .01
   GAMMA: 0.1
   # 1x schedule (note TRAIN.IMS_PER_BATCH: 1)
-  MAX_ITER: 320000 #274500
+  MAX_ITER: 50 #274500
   STEPS: [0]
 RPN:
   SIZES: (32, 64, 128, 256, 512)
