@@ -106,7 +106,7 @@ def get_class_string(class_index, score, dataset):
 
 def vis_one_image(
         im, im_name, output_dir, boxes, segms=None, keypoints=None, thresh=0.9,
-        kp_thresh=2, dpi=200, box_alpha=0.0, dataset=None, show_class=False,
+        kp_thresh=2, dpi=600, box_alpha=0.0, dataset=None, show_class=False,
         ext='pdf', plain_img=False, no_adc=False, show_roi_num=False, entry=-1):
     """Visual debugging of detections."""
     # print("SHAPE DESIRED:", boxes.shape)
@@ -172,7 +172,7 @@ def vis_one_image(
     areas = (boxes[:, 2] - boxes[:, 0]) * (boxes[:, 3] - boxes[:, 1])
     sorted_inds = np.argsort(-areas)
 
-    mask_color_id = 0
+    mask_color_id = 1
     once =1
 
     if plain_img:
@@ -186,7 +186,7 @@ def vis_one_image(
             ax.text(
                 10,500,
                 "Entry #"+str(entry),
-                fontsize=3,
+                fontsize=9,
                 family='serif',
                 bbox=dict(
                     facecolor='g', alpha=0.4, pad=0, edgecolor='none'),
@@ -203,14 +203,15 @@ def vis_one_image(
                 plt.Rectangle((bbox[0], bbox[1]),
                               bbox[2] - bbox[0],
                               bbox[3] - bbox[1],
-                              fill=False, edgecolor='g',
-                              linewidth=0.5, alpha=box_alpha))
+                              fill=False, edgecolor='y',
+                              linewidth=1.5, alpha=box_alpha))
 
             if show_class:
+                # if (bbox[1] < )
                 ax.text(
-                    bbox[0], bbox[1] +10,
+                    bbox[0], bbox[1] + 20,
                     get_class_string(classes[i], score, dataset),
-                    fontsize=3,
+                    fontsize=9,
                     family='serif',
                     bbox=dict(
                         facecolor='g', alpha=0.4, pad=0, edgecolor='none'),
@@ -231,7 +232,7 @@ def vis_one_image(
                 ax.text(
                     bbox[0], bbox[1] +dist,
                     str(i),
-                    fontsize=3,
+                    fontsize=9,
                     family='serif',
                     bbox=dict(
                         facecolor='g', alpha=0.4, pad=0, edgecolor='none'),
@@ -247,7 +248,7 @@ def vis_one_image(
 
             # show mask
             # print('About to check the segms')
-            if segms is not None and len(segms) > i:
+            if segms is not None and len(segms) > i and True:
                 # print('Inside Segments')
                 # for k,v in segms[0].items():
                 #     print(k)

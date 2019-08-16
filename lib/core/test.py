@@ -189,7 +189,13 @@ def im_detect_bbox(model, im, target_scale, target_max_size, boxes=None):
     # print('------------------')
     # print()
     return_dict = model(**inputs)
-
+    # for k,v in return_dict.items():
+    #     print("key:", k)
+    #     print("type v", type(v))
+    #     if isinstance(v,dict):
+    #         for k2,v2 in v.items():
+    #             print("key:", k2)
+    #             print("type v", type(v2))
     if cfg.MODEL.FASTER_RCNN:
         rois = return_dict['rois'].data.cpu().numpy()
 
@@ -1039,7 +1045,7 @@ def _get_blobs(im, rois, target_scale, target_max_size):
         blobs['rois'] = _get_rois_blob(rois, im_scale)
     return blobs, im_scale
 
-def efficiency_calculation(gt_box, gt_mask, pred_boxes, pred_masks, adc_image):
+def efficiency_calculation_union(gt_box, gt_mask, pred_boxes, pred_masks, adc_image):
     ### Take in one ground truth box and its mask, then loop through all
     ### the predicted boxes adding up their coverages to find what % of GT is
     ### covered by their union
@@ -1071,6 +1077,44 @@ def efficiency_calculation(gt_box, gt_mask, pred_boxes, pred_masks, adc_image):
 
     percent_covered = float(pixels_covered)/float(total_gt_pixels)
 
+    return percent_covered
+
+def efficiency_calculation_single(gt_box, gt_mask, pred_boxes, pred_masks, adc_image):
+    ### Take in one ground truth box and its mask, then loop through all
+    ### the predicted boxes to find who has the most efficient coverage
+    ### also record the chosen's IoU with another GT mask
+    percent_covered = 0
+
+    #Get Union of pred_boxes
+    actual_pred = np.zeros(gt_mask.shape)
+    for pred_index in range(pred_masks.shape[2]):
+        tmp_percent_covered = 0.0
+        pred_box = pred_boxes[pred_index,:]
+        if not do_boxes_overlap(pred_box[0:4], gt_box[0:4]):
+            #save some compute time, dont sum masks if boxes not overlapping
+            continue
+        actual_pred = actual_pred + pred_masks[:,:,pred_index]
+        #make union a binary:
+        actual_pred[actual_pred > 0]  = 1
+        actual_pred[actual_pred <= 0] = 0
+
+
+        gt_mask_box = gt_mask[int(np.floor(gt_box[1])):int(np.ceil(gt_box[3]+1)),int(np.floor(gt_box[0])):int(np.ceil(gt_box[2]+1))]
+        actual_pred_box = actual_pred[int(np.floor(gt_box[1])):int(np.ceil(gt_box[3]+1)),int(np.floor(gt_box[0])):int(np.ceil(gt_box[2]+1))]
+        adc_image_box = adc_image[int(np.floor(gt_box[1])):int(np.ceil(gt_box[3]+1)),int(np.floor(gt_box[0])):int(np.ceil(gt_box[2]+1))]
+
+        pixels_covered   = np.sum(np.multiply(np.multiply(actual_pred_box,gt_mask_box),adc_image_box))
+        total_gt_pixels  = np.sum(np.multiply(gt_mask_box,adc_image_box))
+        if total_gt_pixels == 0:
+            #must be a dead region or not above adc threshold, let's not count this
+            return -1
+
+        tmp_percent_covered = float(pixels_covered)/float(total_gt_pixels)
+        if (tmp_percent_covered > percent_covered):
+            # print(percent_covered, " Replaced with ", tmp_percent_covered)
+            # print()
+            percent_covered = tmp_percent_covered
+        actual_pred.fill(0)
     return percent_covered
 
 def best_iou(index, box_list):

@@ -25,7 +25,7 @@ from torch.autograd import Variable
 import _init_paths
 import nn as mynn
 from core.config import cfg, cfg_from_file, cfg_from_list, assert_and_infer_cfg
-from core.test import im_detect_all, purity_calculation, efficiency_calculation, best_iou
+from core.test import im_detect_all, purity_calculation, efficiency_calculation_union, efficiency_calculation_single, best_iou
 from modeling.model_builder import Generalized_RCNN
 import datasets.dummy_datasets as datasets
 import utils.misc as misc_utils
@@ -60,7 +60,8 @@ def parse_args():
 
     parser.add_argument(
         '--cfg', dest='cfg_file', required=True,
-        help='optional config file')
+        help='config file')
+
     parser.add_argument(
         '--set', dest='set_cfgs',
         help='set config keys, will overwrite config in the cfg_file',
@@ -86,8 +87,7 @@ def parse_args():
         '--output_dir',
         help='directory to save demo results',
         default="infer_outputs")
-    parser.add_argument(
-        '--merge_pdfs', type=distutils.util.strtobool, default=True)
+
 
     parser.add_argument(
         '--num_images',
@@ -103,8 +103,11 @@ def parse_args():
 
 
     return args
-
-
+# Single ckpt
+# python tools/deploy_eff_purity.py --cfg configs/baselines/mills_config_2.yaml --dataset particle --load_ckpt Outputs/mills_config_2/NMS_CUT_Feb08-16-46-2
+# 3_meitner_step/ckpt/model_step319999.pth  --image_dir /media/disk1/jmills/crop_mask_valid/   --output_dir single_eff_pur --num_images 10
+# Many ckpts
+# python tools/deploy_eff_purity.py --cfg configs/baselines/mills_config_2.yaml --dataset particle --load_many_ckpts Outputs/mills_config_2/  --image_dir /media/disk1/jmills/crop_mask_valid/   --output_dir single_eff_pur --num_images 10
 def main():
 
     """main function"""
@@ -206,7 +209,7 @@ def main():
         step = str((load_name.split("model_step",1)[1]).split(".pth",1)[0])
         while len(step) < 7:
             step = "0"+step
-        f = ROOT.TFile(args.output_dir+"Eff_Pur_"+step+'.root', 'recreate' )
+        f = ROOT.TFile(args.output_dir+"/Eff_Pur_"+step+'.root', 'recreate' )
         t = ROOT.TTree( 'Eff_Purity_'+step, 'Efficiency and Purity' )
         #Vectors for Buffer
         Purities = ROOT.vector('float')()
@@ -420,7 +423,7 @@ def main():
             sum_efficiency=0.0
             num_uncounted = 0
             for gt_index in range(gt_masks.shape[2]):
-                efficiency = efficiency_calculation(gt_boxes[gt_index,:], gt_masks[:,:,gt_index], pred_boxes, pred_masks, adc_image_bin)
+                efficiency = efficiency_calculation_single(gt_boxes[gt_index,:], gt_masks[:,:,gt_index], pred_boxes, pred_masks, adc_image_bin)
                 if efficiency == -1:
                     num_uncounted +=1
                     continue
@@ -441,7 +444,7 @@ def main():
             num_uncounted = 0
             sum_efficiency_charge = 0.0
             for gt_index in range(gt_masks.shape[2]):
-                efficiency_charge = efficiency_calculation(gt_boxes[gt_index,:], gt_masks[:,:,gt_index], pred_boxes, pred_masks, adc_no_bin)
+                efficiency_charge = efficiency_calculation_single(gt_boxes[gt_index,:], gt_masks[:,:,gt_index], pred_boxes, pred_masks, adc_no_bin)
                 if efficiency_charge == -1:
                     num_uncounted +=1
                     continue

@@ -114,8 +114,11 @@ def main():
     h =  700
     ROOT.gStyle.SetStatY(0.9);
     ROOT.gStyle.SetStatX(0.30);
-    can  = ROOT.TCanvas("can", "histograms   ", w, h)
-    # ROOT.gPad.SetLogz();
+    can  = ROOT.TCanvas("can", "histograms   ", w, w)
+    can.SetRightMargin(0.15)
+    height = can.GetWindowHeight()
+    # can.SetCanvasSize(height, height)
+    ROOT.gPad.SetLogz();
 
     for key in tree_keys:
 
@@ -156,8 +159,8 @@ def main():
                 print(tree_dict[key].Ev_Num[0])
             hist.Fill(Pur_Avg[0], Eff_Avg[0])
         hist.Write()
-        hist.SetMaximum(2000)
-        hist.SetMinimum(1)
+        hist.SetMaximum(6000)
+        # hist.SetMinimum(1)
         hist.SetXTitle("Purity")
         hist.SetYTitle("Efficiency")
         hist.Draw('colz')
