@@ -66,7 +66,7 @@ def add_mask_rcnn_blobs(blobs, sampled_boxes, roidb, im_scale, batch_idx):
         boxes_from_polys = np.append(boxes_from_polys, np.array([[bbox[0],bbox[1],bbox[0]+bbox[2],bbox[1]+bbox[3]]]), 0)
         # print(i)
         # print(bbox[0],bbox[1],bbox[0]+bbox[2],bbox[1]+bbox[3])
-        masks_orig_size.append(larcv.as_ndarray_mask(cluster_masks[int(i)]))
+        masks_orig_size.append(np.transpose(larcv.as_ndarray_mask(cluster_masks[int(i)])))
 
 
 
@@ -274,6 +274,7 @@ def resize_mask_to_set_dim(mask_gt_orig_size, roi_fg, box_gt, M):
     else:
         end_copy_y = int(box_gt[3] - roi_fg[1] +1)
 
+    # print(mask_cropped.shape, mask_gt_orig_size.shape)
     for x in range(start_copy_x, end_copy_x):
         for y in range(start_copy_y, end_copy_y):
             mask_cropped[y][x][0] = np.uint8(mask_gt_orig_size[ y - int(box_gt[1] - roi_fg[1]) ][ x - int(box_gt[0] - roi_fg[0])])
