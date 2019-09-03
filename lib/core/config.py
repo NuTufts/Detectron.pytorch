@@ -937,6 +937,9 @@ __C.GROUP_NORM.EPSILON = 1e-5
 # MISC options
 # ---------------------------------------------------------------------------- #
 
+# Take neutrino classes, and add gt masks for them. 
+__C.NEUTRINO_PTS = False
+
 # Number of GPUs to use (applies to both training and testing)
 __C.NUM_GPUS = 1
 

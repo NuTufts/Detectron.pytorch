@@ -232,12 +232,16 @@ class Generalized_RCNN(nn.Module):
             # self.timers['rpn_losses'] += time.time() - relative_time
             relative_time =time.time()
             # bbox loss
-            loss_cls, loss_bbox, accuracy_cls = fast_rcnn_heads.fast_rcnn_losses(
+            loss_cls, loss_bbox, accuracy_cls, accuracy_neut, accuracy_cosm = fast_rcnn_heads.fast_rcnn_losses(
                 cls_score, bbox_pred, rpn_ret['labels_int32'], rpn_ret['bbox_targets'],
                 rpn_ret['bbox_inside_weights'], rpn_ret['bbox_outside_weights'])
             return_dict['losses']['loss_cls'] = loss_cls
             return_dict['losses']['loss_bbox'] = loss_bbox
             return_dict['metrics']['accuracy_cls'] = accuracy_cls
+            if accuracy_neut != -1:
+                return_dict['metrics']['accuracy_neut'] = accuracy_neut
+            if accuracy_cosm != -1:
+                return_dict['metrics']['accuracy_cosm'] = accuracy_cosm
             # self.timers['bbox_cls_loss'] += time.time() - relative_time
             relative_time =time.time()
 
