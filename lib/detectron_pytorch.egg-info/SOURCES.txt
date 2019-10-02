@@ -5,12 +5,6 @@ setup_layers.py
 /home/jmills/workdir/mask-rcnn.pytorch/lib/model/csrc/cuda/ROIAlign_cuda.cu
 /home/jmills/workdir/mask-rcnn.pytorch/lib/model/csrc/cuda/ROIPool_cuda.cu
 /home/jmills/workdir/mask-rcnn.pytorch/lib/model/csrc/cuda/nms.cu
-/home/jmills/workdir/ubdl/ublarcvserver/networks/mask-rcnn.pytorch/lib/model/csrc/vision.cpp
-/home/jmills/workdir/ubdl/ublarcvserver/networks/mask-rcnn.pytorch/lib/model/csrc/cpu/ROIAlign_cpu.cpp
-/home/jmills/workdir/ubdl/ublarcvserver/networks/mask-rcnn.pytorch/lib/model/csrc/cpu/nms_cpu.cpp
-/home/jmills/workdir/ubdl/ublarcvserver/networks/mask-rcnn.pytorch/lib/model/csrc/cuda/ROIAlign_cuda.cu
-/home/jmills/workdir/ubdl/ublarcvserver/networks/mask-rcnn.pytorch/lib/model/csrc/cuda/ROIPool_cuda.cu
-/home/jmills/workdir/ubdl/ublarcvserver/networks/mask-rcnn.pytorch/lib/model/csrc/cuda/nms.cu
 core/__init__.py
 core/config.py
 core/test.py

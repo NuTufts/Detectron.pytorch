@@ -160,7 +160,7 @@ def main():
         file_list = args.images
 
     #collect files
-    image2d_adc_crop_chain = ROOT.TChain("image2d_wire_tree")
+    image2d_adc_crop_chain = ROOT.TChain("image2d_adc_tree")
     for file in file_list: image2d_adc_crop_chain.AddFile(file)
 
 
@@ -174,9 +174,9 @@ def main():
     for i in xrange(args.num_images):
         print('img', i)
         image2d_adc_crop_chain.GetEntry(i)
-        entry_image2dadc_crop_data = image2d_adc_crop_chain.image2d_wire_branch
+        entry_image2dadc_crop_data = image2d_adc_crop_chain.image2d_adc_branch
         image2dadc_crop_array = entry_image2dadc_crop_data.as_vector()
-        im_2d = larcv.as_ndarray(image2dadc_crop_array[cfg.PLANE])
+        im_2d = np.transpose(larcv.as_ndarray(image2dadc_crop_array[cfg.PLANE]))
         height, width = im_2d.shape
         im = np.zeros ((height,width,3))
         im = np.moveaxis(np.array([np.copy(im_2d),np.copy(im_2d),np.copy(im_2d)]),0,2)
@@ -230,11 +230,11 @@ def main():
             cls_keyps,
             dataset=dataset,
             box_alpha=0.7,
-            show_class=False,
-            thresh=0.7,
+            show_class=True,
+            thresh=0.5,
             kp_thresh=2,
             no_adc=False,
-            entry=-1,
+            entry=i,
             plain_img=False
         )
 

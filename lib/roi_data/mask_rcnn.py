@@ -98,12 +98,8 @@ def add_mask_rcnn_blobs(blobs, sampled_boxes, roidb, im_scale, batch_idx):
     if fg_inds.shape[0] > 0:
         # Class labels for the foreground rois
         mask_class_labels = blobs['labels_int32'][fg_inds]
-        # print('mask_class_labels', mask_class_labels)
         masks = blob_utils.zeros((fg_inds.shape[0], M**2), int32=True)
-        # print('masks type', type(masks), masks.shape)
-        # print('masks max:', masks.max())
-        # print('masks min:', masks.min())
-        # print()
+
 
 
         # Find overlap between all foreground rois and the bounding boxes
@@ -121,13 +117,8 @@ def add_mask_rcnn_blobs(blobs, sampled_boxes, roidb, im_scale, batch_idx):
         # box_orig = np.array([7,7,9,9])
         # box_adjust = np.array([2,2,6,6])
         # resized = resize_mask_to_set_dim(original, box_adjust, box_orig, 10)
-        #
-        #
-        # for y in reversed(range(resized.shape[1])):
-        #     for x in range(resized.shape[0]):
-        #         print(int(resized[x][y]),end=' ')
-        #     print()
-        # print()
+
+
 
         # add fg targets
         for i in range(rois_fg.shape[0]):
@@ -140,8 +131,7 @@ def add_mask_rcnn_blobs(blobs, sampled_boxes, roidb, im_scale, batch_idx):
             roi_fg = rois_fg[i]
             # Rasterize the portion of the polygon mask within the given fg roi
             # to an M x M binary image
-            # print(fg_polys_ind)
-            # print('roi_fg', roi_fg)
+
             # mask = segm_utils.polys_to_mask_wrt_box(poly_gt, roi_fg, M)
             mask = resize_mask_to_set_dim(mask_gt_orig_size, roi_fg, box_gt, M)
 
@@ -161,16 +151,7 @@ def add_mask_rcnn_blobs(blobs, sampled_boxes, roidb, im_scale, batch_idx):
         mask_class_labels = blob_utils.zeros((1, ))
         # Mark that the first roi has a mask
         roi_has_mask[0] = 1
-    # print('Before Expansion')
-    # for mask in range(len(masks)):
-    #     if mask >5:
-    #         break
-    #     if np.amax(masks[mask]) > 0:
-    #         for x in range(14):
-    #             for y in range(14):
-    #                 print(masks[mask][x*14+y], end=' ')
-    #             print()
-    #         print()
+
     if cfg.MRCNN.CLS_SPECIFIC_MASK:
         masks = _expand_to_class_specific_mask_targets(masks,
                                                        mask_class_labels)
@@ -184,22 +165,7 @@ def add_mask_rcnn_blobs(blobs, sampled_boxes, roidb, im_scale, batch_idx):
     blobs['mask_rois'] = rois_fg
     blobs['roi_has_mask_int32'] = roi_has_mask
 
-    # print('masks type', type(masks), masks.shape)
 
-    # for mask in range(len(masks)):
-    #     if mask >5:
-    #         break
-    #     if np.amax(masks[mask]) > 0:
-    #         print('MAX:     ',np.amax(masks[mask]))
-    #         for m in range(7):
-    #             print('Class:' , m)
-    #             for x in range(14):
-    #                 for y in range(14):
-    #                     print(masks[mask][m*14*14+x*14+y], end=' ')
-    #                 print()
-    #             print()
-    #
-    # print()
 
     blobs['masks_int32'] = masks
 
@@ -235,25 +201,9 @@ def resize_mask_to_set_dim(mask_gt_orig_size, roi_fg, box_gt, M):
     #plus one to include the
     pred_w = int(roi_fg[2]-roi_fg[0] +1)
     pred_h = int(roi_fg[3]-roi_fg[1] +1)
-    # print("mask_gt_orig_size shape")
-    # print(mask_gt_orig_size.shape)
-    # print("orig bbox dim")
-    # print(box_gt[2]-box_gt[0], box_gt[3]-box_gt[1])
-    # print("pred bbox dim")
-    # print(pred_w, pred_h)
-    # print('Desired Square Dim:')
-    # print(M)
+
     mask_cropped = np.zeros((pred_h,pred_w,1), dtype=np.uint8)
 
-    # print()
-    # for y in reversed(range(mask_gt_orig_size.shape[1])):
-    #     for x in range(mask_gt_orig_size.shape[0]):
-    #         print(int(mask_gt_orig_size[x][y]),end=' ')
-    #     print()
-    # for y in reversed(range(mask_cropped.shape[1])):
-    #     for x in range(mask_cropped.shape[0]):
-    #         print(int(mask_cropped[x][y]),end=' ')
-    #     print()
     #Find x indices to copy
     if box_gt[0] >= roi_fg[0]:
         start_copy_x = int(box_gt[0] - roi_fg[0])
@@ -274,7 +224,6 @@ def resize_mask_to_set_dim(mask_gt_orig_size, roi_fg, box_gt, M):
     else:
         end_copy_y = int(box_gt[3] - roi_fg[1] +1)
 
-    # print(mask_cropped.shape, mask_gt_orig_size.shape)
     for x in range(start_copy_x, end_copy_x):
         for y in range(start_copy_y, end_copy_y):
             mask_cropped[y][x][0] = np.uint8(mask_gt_orig_size[ y - int(box_gt[1] - roi_fg[1]) ][ x - int(box_gt[0] - roi_fg[0])])
@@ -286,7 +235,6 @@ def resize_mask_to_set_dim(mask_gt_orig_size, roi_fg, box_gt, M):
 
     pil_image =transform(mask_cropped)
     mask_resized = np.array(pil_image)
-    # print('Shape', (mask_resized.shape))
 
 
 

@@ -186,7 +186,7 @@ def vis_one_image(
             ax.text(
                 10,500,
                 "Entry #"+str(entry),
-                fontsize=9,
+                fontsize=2,
                 family='serif',
                 bbox=dict(
                     facecolor='g', alpha=0.4, pad=0, edgecolor='none'),
@@ -204,14 +204,14 @@ def vis_one_image(
                               bbox[2] - bbox[0],
                               bbox[3] - bbox[1],
                               fill=False, edgecolor='y',
-                              linewidth=1.5, alpha=box_alpha))
+                              linewidth=0.5, alpha=box_alpha))
 
             if show_class:
                 # if (bbox[1] < )
                 ax.text(
                     bbox[0], bbox[1] + 20,
                     get_class_string(classes[i], score, dataset),
-                    fontsize=9,
+                    fontsize=2,
                     family='serif',
                     bbox=dict(
                         facecolor='g', alpha=0.4, pad=0, edgecolor='none'),

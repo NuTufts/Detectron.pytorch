@@ -4,6 +4,8 @@ import torch.nn.functional as F
 import torch.nn.init as init
 from torch.autograd import Variable
 
+import numpy as np
+
 from core.config import cfg
 import nn as mynn
 import utils.net as net_utils
@@ -52,7 +54,6 @@ def fast_rcnn_losses(cls_score, bbox_pred, label_int32, bbox_targets,
                      bbox_inside_weights, bbox_outside_weights):
     device_id = cls_score.get_device()
     rois_label = Variable(torch.from_numpy(label_int32.astype('int64'))).cuda(device_id)
-    loss_cls = F.cross_entropy(cls_score, rois_label)
 
     bbox_targets = Variable(torch.from_numpy(bbox_targets)).cuda(device_id)
     bbox_inside_weights = Variable(torch.from_numpy(bbox_inside_weights)).cuda(device_id)
@@ -72,6 +73,8 @@ def fast_rcnn_losses(cls_score, bbox_pred, label_int32, bbox_targets,
 
     num_cosm = (( rois_label == 1 ).float() * cls_preds.eq(rois_label).float() ).float().sum(dim=0).float()
     num_neut = (( rois_label == 5 ).float() * cls_preds.eq(rois_label).float() ).float().sum(dim=0).float()
+    num_vertex = (( rois_label == 7 ).float() * cls_preds.eq(rois_label).float() ).float().sum(dim=0).float()
+
     den_cosm = (rois_label == 1 ).float().sum(dim=0).float()
     den_neut = (rois_label == 5 ).float().sum(dim=0).float()
     # print("My Accuracy: ", numerator/denominator.item())
@@ -81,17 +84,35 @@ def fast_rcnn_losses(cls_score, bbox_pred, label_int32, bbox_targets,
     accuracy_cls = numerator/denominator
     accuracy_cosm = -1
     accuracy_neut = -1
-    if den_neut != 0:
-        print("Neutrino in this event!")
-        print("num_neut", num_neut)
-        print("den_neut", den_neut)
 
+    if den_neut != 0:
         accuracy_neut = num_neut/den_neut
     if den_cosm != 0:
         accuracy_cosm = num_cosm/den_cosm
     # accuracy_cls = cls_preds.eq(rois_label).float().mean(dim=0)
     # original
     # accuracy_cls = cls_preds.eq(rois_label).float().mean(dim=0)
+    neut_weight = 0
+    cosmic_weight = 0
+    print()
+    print("num_neut: ", num_neut.item())
+    print("num_cosm: ", num_cosm.item())
+    print("num_vertex: ", num_vertex.item())
+    if (num_neut ==0) or (num_cosm ==0):
+        neut_weight=1.
+        cosmic_weight=1.
+    else:
+        neut_weight= float(num_cosm)/float(num_neut+num_cosm)
+        cosmic_weight= float(num_neut)/float(num_cosm+num_neut)
+
+    weight = np.zeros(cls_score.shape[1],np.float32)
+    weight[0] = 1
+    weight[1] = cosmic_weight
+    weight[5] = neut_weight
+    weight[7] = 1
+     # = np.array([1,cosmic_weight,0,0,0,neut_weight,0], np.float32)
+    weight = (torch.from_numpy(weight)).cuda(device_id)
+    loss_cls = F.cross_entropy(cls_score,rois_label,weight)
 
 
 

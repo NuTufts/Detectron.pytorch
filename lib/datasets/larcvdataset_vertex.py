@@ -89,9 +89,9 @@ class LArCVDataset(object):
         # self.COCO = COCO(DATASETS[name][ANN_FN])
         self.debug_timer = Timer()
         # Set up dataset classes
-        category_ids = [1,2,3,4,5,6,7]
+        category_ids = [1,2,3,4,5,6]
         # category_ids = self.COCO.getCatIds()
-        categories = ['Cosmic', 'Neutron', 'Proton', 'Electron', 'Neutrino', 'Other', 'Vertex']
+        categories = ['Cosmic', 'Neutron', 'Proton', 'Electron', 'Neutrino', 'Other']
         # categories = [c['name'] for c in self.COCO.loadCats(category_ids)]
         self.category_to_id_map = dict(zip(categories, category_ids))
         self.classes = ['__background__'] + categories
@@ -187,8 +187,8 @@ class LArCVDataset(object):
         ###
         roidb = []
         # _files = ['/home/jmills/workdir/mask-rcnn.pytorch/data/particle_physics_train/root_files/croppedmask_lf_001.root']
-        _files = ['/home/jmills/workdir/mask-rcnn.pytorch/data/particle_physics_train/root_files/croppedmask_lf.root']
-        # _files = ['/home/jmills/workdir/mask-rcnn.pytorch/data/particle_physics_train/root_files/crop_train.root']
+        # _files = ['/media/disk1/jmills/crop_mask_train/crop_train1.root']
+        _files = ['/home/jmills/workdir/mask-rcnn.pytorch/data/particle_physics_train/root_files/crop_train.root']
         if self.validation == True:
             _files = ['/media/disk1/jmills/crop_mask_valid/crop_valid.root']
         # _f = ROOT.TFile(_files[0])
@@ -203,11 +203,11 @@ class LArCVDataset(object):
         assert image2d_adc_crop_chain.GetEntries() == clustermask_cluster_crop_chain.GetEntries()
 
         self.NUM_IMAGES=clustermask_cluster_crop_chain.GetEntries()
-        self.NUM_IMAGES=50
+        self.NUM_IMAGES=1
         # self.NUM_IMAGES=clustermask_cluster_crop_chain.GetEntries() - 154000
 
 
-        self.SPECIFIC_IMAGE_START=0
+        self.SPECIFIC_IMAGE_START=20
 
 
         for entry in range(self.SPECIFIC_IMAGE_START,self.SPECIFIC_IMAGE_START+self.NUM_IMAGES):
@@ -354,12 +354,37 @@ class LArCVDataset(object):
             mask_bin_arr = larcv.as_ndarray_mask(mask)
             mask_box_arr = larcv.as_ndarray_bbox(mask)
             new_mask = mask_bin_arr.astype(np.uint8).copy()
-            if mask_box_arr[4] != 7:
+
+
+            if (mask_box_arr[4] == 5):
+                obj['segmentation'] = []
+                obj['area'] = 9
+                vertex_x = mask.ancestor_track_start.x
+                vertex_y = mask.ancestor_track_start.y
+                print(vertex_x, vertex_y)
+                x1 = vertex_x-1
+                x2 = vertex_x+1
+                y1 = vertex_y-1
+                y2 = vertex_y+1
+                obj['clean_bbox'] = [x1, y1, x2, y2]
+                obj['mask'] = mask
+                obj['iscrowd'] = 0
+                valid_objs.append(obj)
+                valid_segms.append([])
                 continue
+                obj = {}
+
+            else:
+                continue
+
+
             # opencv 3.2
             mask_new, contours, hierarchy = cv2.findContours((new_mask).astype(np.uint8), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
             # n=0
             polygon_list = []
+
+
+
             for contour in contours:
                 # n=n+1
                 # print('Contour # ', n)
@@ -381,7 +406,7 @@ class LArCVDataset(object):
             #     #Nothing in this segment don't include
             #     # print('idx inside: ',idx)
             #     # delete_rows.append(idx)
-            #     # print('idx inside: 5',idx)
+            #     # print('idx inside: ',idx)
             #     continue
             # print(polygon_list)
             obj['segmentation'] = polygon_list
@@ -426,8 +451,7 @@ class LArCVDataset(object):
         im_has_visible_keypoints = False
         for ix, obj in enumerate(valid_objs):
             cls = int(larcv.as_ndarray_bbox(obj['mask'])[4])
-            if cls == 7:
-                print("Vertex added")
+
             boxes[ix, :] = obj['clean_bbox']
             gt_classes[ix] = cls
             seg_areas[ix] = obj['area']
@@ -447,7 +471,7 @@ class LArCVDataset(object):
                 gt_overlaps[ix, cls] = 1.0
 
         entry['boxes'] = np.append(entry['boxes'], boxes, axis=0)
-        print(entry['boxes'].shape)
+
         entry_ious = get_ious(entry['boxes'])
         if len(entry['boxes']) > 1:
             max_iou = entry_ious.max()

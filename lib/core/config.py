@@ -937,9 +937,6 @@ __C.GROUP_NORM.EPSILON = 1e-5
 # MISC options
 # ---------------------------------------------------------------------------- #
 
-# Take neutrino classes, and add gt masks for them. 
-__C.NEUTRINO_PTS = False
-
 # Number of GPUs to use (applies to both training and testing)
 __C.NUM_GPUS = 1
 
@@ -977,7 +974,7 @@ __C.EPS = 1e-14
 __C.ROOT_DIR = osp.abspath(osp.join(osp.dirname(__file__), '..', '..'))
 
 # Output basedir
-__C.OUTPUT_DIR = '/media/disk1/jmills/Outputs'
+__C.OUTPUT_DIR = '/home/jmills/workdir/mask-rcnn.pytorch/Outputs'
 
 # Name (or path to) the matlab executable
 __C.MATLAB = 'matlab'

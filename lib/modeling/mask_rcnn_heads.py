@@ -229,6 +229,17 @@ def mask_rcnn_losses(masks_pred, masks_int32):
     # print()
     # print()
     # print()
+    mask_accuracies =  np.array([],np.float32)
+    # print("masks_pred.shape", "masks_gt.shape")
+    # print(masks_pred.shape, masks_gt.view(masks_pred.shape).shape, weight.view(masks_pred.shape).shape)
+    # np_wei = weight.view(masks_pred.shape).cpu().numpy()
+    # print(np_wei.shape)
+    # for box in range(masks_pred.shape[0]):
+    #     print()
+    #     for class_num in range(7):
+    #         print(np_wei[box][class_num][0][0])
+
+
     loss = F.binary_cross_entropy_with_logits(
         masks_pred.view(n_rois, -1), masks_gt, weight, reduction='sum')
     # print()
@@ -236,7 +247,7 @@ def mask_rcnn_losses(masks_pred, masks_int32):
     # print('loss shape is: ', loss.shape)
     # print()
     loss /= total_for_avg
-    return loss * cfg.MRCNN.WEIGHT_LOSS_MASK
+    return loss * cfg.MRCNN.WEIGHT_LOSS_MASK , mask_accuracies
 
 
 # ---------------------------------------------------------------------------- #

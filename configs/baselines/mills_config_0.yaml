@@ -15,7 +15,7 @@ SOLVER:
   #was .01
   GAMMA: 0.1
   # 1x schedule (note TRAIN.IMS_PER_BATCH: 1)
-  MAX_ITER: 120000 #274500
+  MAX_ITER: 1 #274500
   STEPS: [0]
 RPN:
   SIZES: (32, 64, 128, 256, 512)
@@ -35,16 +35,16 @@ MRCNN:
   DILATION: 1  # default 2
   CONV_INIT: MSRAFill  # default: GaussianFill
 TRAIN:
-  SNAPSHOT_ITERS: 5000
+  SNAPSHOT_ITERS: 1000
   SCALES: (512,)
   MAX_SIZE: 832
   IMS_PER_BATCH: 1
-  BATCH_SIZE_PER_IM: 256
+  BATCH_SIZE_PER_IM: 512
   MAKE_IMAGES: False
-  # originally 0.7 (in ported model)
-  RPN_NMS_THRESH: 0.7
-  # Flip these on at 2 Epochs (200k iter at 2 gpus)
+  #originally 0.7
+  RPN_NMS_THRESH: 0.1
   # RPN_NMS_THRESH: 0.5
+
   # GT_IOU_THRESH: 0.2
 TEST:
   SCALE: 1008

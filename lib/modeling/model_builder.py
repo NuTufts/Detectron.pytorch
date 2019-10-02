@@ -260,7 +260,7 @@ class Generalized_RCNN(nn.Module):
                 # mask loss
 
                 # print(rpn_ret['mask_rois'])
-                loss_mask = mask_rcnn_heads.mask_rcnn_losses(mask_pred, rpn_ret['masks_int32'])
+                loss_mask, mask_accuracies = mask_rcnn_heads.mask_rcnn_losses(mask_pred, rpn_ret['masks_int32'])
                 if cfg.TRAIN.MAKE_IMAGES and (self.training or self.validation):
 
                     boxes_2 = np.empty((len(rpn_ret['mask_rois']),4))
