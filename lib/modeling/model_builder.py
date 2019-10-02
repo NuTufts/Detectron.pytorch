@@ -100,7 +100,6 @@ class Generalized_RCNN(nn.Module):
 
         # Backbone for feature extraction
         self.Conv_Body = get_func(cfg.MODEL.CONV_BODY)()
-        print type(self.Conv_Body.spatial_scale)
         
         # Region Proposal Network
         if cfg.RPN.RPN_ON:
