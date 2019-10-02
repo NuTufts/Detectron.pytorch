@@ -14,14 +14,20 @@ from six.moves import cPickle as pickle
 import logging
 import numpy as np
 import os
-import scipy.sparse
+try:
+    import scipy.sparse
+except:
+    pass
 
 # Must happen before importing COCO API (which imports matplotlib)
 import utils.env as envu
 envu.set_up_matplotlib()
 # COCO API
-from pycocotools import mask as COCOmask
-from pycocotools.coco import COCO
+try:
+    from pycocotools import mask as COCOmask
+    from pycocotools.coco import COCO
+except:
+    pass
 
 import utils.boxes as box_utils
 from core.config import cfg
@@ -38,8 +44,11 @@ from larcv import larcv
 import numpy as np
 from torch.utils.data import Dataset
 #new imports:
-import cv2
-import matplotlib.pyplot as pl
+try:
+    import cv2
+    import matplotlib.pyplot as plt
+except:
+    pass
 
 
 logger = logging.getLogger(__name__)
@@ -55,29 +64,6 @@ class LArCVDataset(object):
         assert os.path.exists(DATASETS[name][IM_DIR]), \
             'Image directory \'{}\' not found'.format(DATASETS[name][IM_DIR])
 
-        # We don't have annotation files
-        # assert os.path.exists(DATASETS[name][ANN_FN]), \
-        #     'Annotation file \'{}\' not found'.format(DATASETS[name][ANN_FN])
-
-
-        #could replace with loops for lots of files in dir? -j
-        # self.file_path =  [DATASETS[name][IM_DIR]+"croppedmask_lf.root"]
-        # # self.file = ROOT.TFile(self.file_path[0])
-        # print('')
-        # print('')
-        # #create TChains
-        # #this is like our version of COCO jpg image:
-        # image2d_adc_crop_chain = ROOT.TChain("image2d_adc_tree")
-        # #this is like our version of COCO annotations:
-        # clustermask_cluster_crop_chain = ROOT.TChain("clustermask_masks_tree")
-        # #fill TChains
-        # for file in self.file_path: image2d_adc_crop_chain.AddFile(file)
-        # print ('Found', image2d_adc_crop_chain.GetEntries(), 'entries in image2d adc values')
-        # for file in self.file_path: clustermask_cluster_crop_chain.AddFile(file)
-        # print ('Found', clustermask_cluster_crop_chain.GetEntries(), 'entries in clustermask clusters cropped ')
-        # print('')
-        # print('')
-
 
 
         logger.debug('Creating: {}'.format(name))
@@ -89,9 +75,9 @@ class LArCVDataset(object):
         # self.COCO = COCO(DATASETS[name][ANN_FN])
         self.debug_timer = Timer()
         # Set up dataset classes
-        category_ids = [1,2,3,4,5,6,7]
+        category_ids = [1,2,3,4,5,6]
         # category_ids = self.COCO.getCatIds()
-        categories = ['Cosmic', 'Neutron', 'Proton', 'Electron', 'Neutrino', 'Other', 'Vertex']
+        categories = ['Cosmic', 'Neutron', 'Proton', 'Electron', 'Neutrino', 'Other']
         # categories = [c['name'] for c in self.COCO.loadCats(category_ids)]
         self.category_to_id_map = dict(zip(categories, category_ids))
         self.classes = ['__background__'] + categories
@@ -186,9 +172,7 @@ class LArCVDataset(object):
         ###Try making my own Roidb using root file
         ###
         roidb = []
-        # _files = ['/home/jmills/workdir/mask-rcnn.pytorch/data/particle_physics_train/root_files/croppedmask_lf_001.root']
-        _files = ['/home/jmills/workdir/mask-rcnn.pytorch/data/particle_physics_train/root_files/croppedmask_lf.root']
-        # _files = ['/home/jmills/workdir/mask-rcnn.pytorch/data/particle_physics_train/root_files/crop_train.root']
+        _files = ['/home/jmills/workdir/mask-rcnn.pytorch/data/particle_physics_train/crop_train.root']
         if self.validation == True:
             _files = ['/media/disk1/jmills/crop_mask_valid/crop_valid.root']
         # _f = ROOT.TFile(_files[0])
@@ -354,8 +338,7 @@ class LArCVDataset(object):
             mask_bin_arr = larcv.as_ndarray_mask(mask)
             mask_box_arr = larcv.as_ndarray_bbox(mask)
             new_mask = mask_bin_arr.astype(np.uint8).copy()
-            if mask_box_arr[4] != 7:
-                continue
+
             # opencv 3.2
             mask_new, contours, hierarchy = cv2.findContours((new_mask).astype(np.uint8), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
             # n=0
@@ -611,91 +594,7 @@ class LArCVDataset(object):
             gt_kps[1, i] = y[i]
             gt_kps[2, i] = v[i]
         return gt_kps
-    ############################################################################################################
-    ############################################################################################################
-    #From this point on we're josh's additions purely to bridge the gap
-    ############################################################################################################
-    ############################################################################################################
-    # def __len__(self):
-    #     if not self.loadallinmem:
-    #         return int(self.io.fetch_n_entries())
-    #     else:
-    #         return int(self.alldata[self.datalist[0]].shape[0])
-    #
-    # def __getitem__(self, idx):
-    #     if not self.loadallinmem:
-    #         #self.io.next(store_event_ids=self.store_eventids)
-    #         self.io.next()
-    #         out = {}
-    #         for dtype,name in zip(self.dtypelist,self.datalist):
-    #             out[name] = self.io.fetch_data(name).data()
-    #
-    #         if self.store_eventids:
-    #             out["event_ids"] = self.io.fetch_event_ids()
-    #     else:
-    #         indices = np.random.randint(len(self),size=self.batchsize)
-    #         out = {}
-    #         for name in self.datalist:
-    #             out[name] = np.zeros( (self.batchsize,self.alldata[name].shape[1]), self.alldata[name].dtype )
-    #             for n,idx in enumerate(indices):
-    #                 out[name][n,:] = self.alldata[name][idx,:]
-    #     return out
-    #
-    # def _loadinmem(self):
-    #     """load data into memory"""
-    #     nevents = int(self.io.fetch_n_entries())
-    #     if self.max_inmem_events>0 and nevents>self.max_inmem_events:
-    #         nevents = self.max_inmem_events
-    #
-    #     print("Attempting to load all ",nevents," into memory. good luck")
-    #     start = time.time()
-    #
-    #     # start threadio
-    #     self.start(1)
-    #
-    #     # get one data element to get shape
-    #     self.io.next(store_event_ids=self.store_eventids)
-    #     firstout = {}
-    #     for name in self.datalist:
-    #         firstout[name] = self.io.fetch_data(name).data()
-    #         self.alldata = {}
-    #     for name in self.datalist:
-    #         self.alldata[name] = np.zeros( (nevents,firstout[name].shape[1]), firstout[name].dtype )
-    #         self.alldata[name][0] = firstout[name][0,:]
-    #     for i in range(1,nevents):
-    #         self.io.next(store_event_ids=self.store_eventids)
-    #         if i%100==0:
-    #             print("loading event %d of %d"%(i,nevents))
-    #         for name in self.datalist:
-    #             out = self.io.fetch_data(name).data()
-    #             self.alldata[name][i,:] = out[0,:]
-    #
-    #     print("elapsed time to bring data into memory: ",time.time()-start,"sec")
-    #
-    #     # stop threads. don't need them anymore
-    #     self.stop()
-
-    # def __str__(self):
-    #     return dumpcfg()
-
-    # def start(self,batchsize):
-    #     """exposes larcv_threadio::start which is used to start the thread managers"""
-    #     self.batchsize = batchsize
-    #     self.io.start_manager(self.batchsize)
-    #
-    # def stop(self):
-    #     """ stops the thread managers"""
-    #     self.io.stop_manager()
-
-    # def dumpcfg(self):
-    #     """dump the configuration file to a string"""
-    #     print(open(self.cfg).read())
-
-    ############################################################################################################
-    ############################################################################################################
-    #End Josh additions back to maskrcnn
-    ############################################################################################################
-    ############################################################################################################
+    
 
 def add_proposals(roidb, rois, scales, crowd_thresh):
     """Add proposal boxes (rois) to an roidb that has ground-truth annotations

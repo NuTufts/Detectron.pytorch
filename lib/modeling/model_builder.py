@@ -22,11 +22,13 @@ import utils.resnet_weights_helper as resnet_utils
 import datasets.dummy_datasets as datasets
 import numpy as np
 import utils.vis as vis_utils
-import cv2
 from core.test import segm_results
-
 import time
 
+try:
+    import cv2
+except:
+    pass
 
 logger = logging.getLogger(__name__)
 
@@ -79,7 +81,7 @@ def check_inference(net_func):
 
 class Generalized_RCNN(nn.Module):
     def __init__(self, validation=False):
-        super().__init__()
+        super(Generalized_RCNN,self).__init__()
 
         # For Validation
         self.validation =validation
@@ -157,7 +159,10 @@ class Generalized_RCNN(nn.Module):
 
     def forward(self, data, im_info, roidb=None, **rpn_kwargs):
 
-
+        if isinstance(data,list):
+            data = data[0]
+        if isinstance(im_info,list):
+            im_info = im_info[0]
 
         if cfg.PYTORCH_VERSION_LESS_THAN_040:
             return self._forward(data, im_info, roidb, **rpn_kwargs)
@@ -169,22 +174,26 @@ class Generalized_RCNN(nn.Module):
         # self.timers['begin_forward_pass']=time.time()
         relative_time =time.time()
 
+        torch.cuda.synchronize
+        t_st = time.time()
         im_data = data
         if self.training or self.validation:
             roidb = list(map(lambda x: blob_utils.deserialize(x)[0], roidb))
-
-        device_id = im_data.get_device()
-        # print()
-        # print("device_id: ", device_id)
-        # print()
+        device_id = ''
+        if im_data.is_cuda:
+            device_id = im_data.get_device()
+        else:
+            device_id = 'cpu'
         return_dict = {}  # A dict to collect return variables
+        if im_data.is_cuda:
+            print(torch.get_device(im_data)," torch.get_device(im_data)")
 
+        # This is resnet here
         blob_conv = self.Conv_Body(im_data)
 
         rpn_ret = self.RPN(blob_conv, im_info, roidb)
-
         # self.timers['rpn_pass'] += time.time() - relative_time
-        relative_time =time.time()
+        relative_time = time.time()
 
 
         if self.training or self.validation:
@@ -200,12 +209,19 @@ class Generalized_RCNN(nn.Module):
             return_dict['blob_conv'] = blob_conv
 
         if not cfg.MODEL.RPN_ONLY:
+            if cfg.SYNCHRONIZE:
+                torch.cuda.synchronize
+            t_st_bhead = time.time()
+            print("before boxhead")
             if cfg.MODEL.SHARE_RES5 and (self.training or self.validation):
-
                 box_feat, res5_feat = self.Box_Head(blob_conv, rpn_ret)
             else:
                 box_feat = self.Box_Head(blob_conv, rpn_ret)
+            if cfg.SYNCHRONIZE:
+                torch.cuda.synchronize
+                print("Time taken to boxhead: %.3f " % (time.time() - t_st_bhead))
             cls_score, bbox_pred = self.Box_Outs(box_feat)
+
         else:
             # TODO: complete the returns for RPN only situation
             pass
@@ -406,7 +422,11 @@ class Generalized_RCNN(nn.Module):
 
         if isinstance(blobs_in, list):
             # FPN case: add RoIFeatureTransform to each FPN level
-            device_id = blobs_in[0].get_device()
+            device_id = ''
+            if blobs_in[0].is_cuda:
+                device_id = blobs_in[0].get_device()
+            else:
+                device_id = 'cpu'
             k_max = cfg.FPN.ROI_MAX_LEVEL  # coarsest level of pyramid
             k_min = cfg.FPN.ROI_MIN_LEVEL  # finest level of pyramid
             assert len(blobs_in) == k_max - k_min + 1
@@ -416,7 +436,7 @@ class Generalized_RCNN(nn.Module):
                 sc = spatial_scale[k_max - lvl]  # in reversed order
                 bl_rois = blob_rois + '_fpn' + str(lvl)
                 if len(rpn_ret[bl_rois]):
-                    rois = Variable(torch.from_numpy(rpn_ret[bl_rois])).cuda(device_id)
+                    rois = Variable(torch.from_numpy(rpn_ret[bl_rois])).to(torch.device(device_id))
                     if method == 'RoIPoolF':
                         # Warning!: Not check if implementation matches Detectron
                         xform_out = ROIPool((resolution, resolution), sc)(bl_in, rois)
@@ -431,18 +451,26 @@ class Generalized_RCNN(nn.Module):
             xform_shuffled = torch.cat(bl_out_list, dim=0)
 
             # Unshuffle to match rois from dataloader
-            device_id = xform_shuffled.get_device()
+            device_id = ''
+            if xform_shuffled.is_cuda:
+                device_id = xform_shuffled.get_device()
+            else:
+                device_is = 'cpu'
             restore_bl = rpn_ret[blob_rois + '_idx_restore_int32']
             restore_bl = Variable(
-                torch.from_numpy(restore_bl.astype('int64', copy=False))).cuda(device_id)
+                torch.from_numpy(restore_bl.astype('int64', copy=False))).to(torch.device(device_id))
             xform_out = xform_shuffled[restore_bl]
         else:
             # Single feature level
             # rois: holds R regions of interest, each is a 5-tuple
             # (batch_idx, x1, y1, x2, y2) specifying an image batch index and a
             # rectangle (x1, y1, x2, y2)
-            device_id = blobs_in.get_device()
-            rois = Variable(torch.from_numpy(rpn_ret[blob_rois])).cuda(device_id)
+            device_id = ''
+            if blobs_in.is_cuda:
+                device_id = blobs_in.get_device()
+            else:
+                device_id = 'cpu'
+            rois = Variable(torch.from_numpy(rpn_ret[blob_rois])).to(torch.device(device_id))
             if method == 'RoIPoolF':
                 xform_out = ROIPool((resolution, resolution), spatial_scale)(blobs_in, rois)
             elif method == 'RoIAlign':
@@ -465,7 +493,11 @@ class Generalized_RCNN(nn.Module):
     @check_inference
     def mask_net(self, blob_conv, rpn_blob):
         """For inference"""
+        t_st = time.time()
         mask_feat = self.Mask_Head(blob_conv, rpn_blob)
+        if cfg.SYNCHRONIZE:
+            torch.cuda.synchronize
+            print("Time til end of mask head (before outs): %.3f" % (time.time() - t_st) )
         mask_pred = self.Mask_Outs(mask_feat)
         return mask_pred
 

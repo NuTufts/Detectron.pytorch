@@ -31,9 +31,11 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 from collections import defaultdict
-import cv2
 import numpy as np
-import pycocotools.mask as mask_util
+try:
+    import pycocotools.mask as mask_util
+except:
+    __has_coco_tools__ = False
 
 from torch.autograd import Variable
 import torch
@@ -49,14 +51,18 @@ import utils.keypoints as keypoint_utils
 #to Vis
 import datasets.dummy_datasets as datasets
 import utils.vis as vis_utils
-import cv2
-from scipy import sparse
+try:
+    import cv2
+    from scipy import sparse
+except:
+    pass
 
 #to purity efficiency
 from datasets.larcvdataset import IoU
+import time
 
 
-def im_detect_all(model, im, box_proposals=None, timers=None, use_polygon=True):
+def im_detect_all(model, im, box_proposals=None, timers=None, use_polygon=True ):
     """Process the outputs of model for testing
     Args:
       model: the network module
@@ -79,6 +85,7 @@ def im_detect_all(model, im, box_proposals=None, timers=None, use_polygon=True):
     else:
         scores, boxes, im_scale, blob_conv = im_detect_bbox(
             model, im, cfg.TEST.SCALE, cfg.TEST.MAX_SIZE, box_proposals)
+
     timers['im_detect_bbox'].toc()
 
 
@@ -97,6 +104,7 @@ def im_detect_all(model, im, box_proposals=None, timers=None, use_polygon=True):
             masks = im_detect_mask_aug(model, im, boxes, im_scale, blob_conv)
         else:
             masks = im_detect_mask(model, im_scale, boxes, blob_conv)
+
         timers['im_detect_mask'].toc()
 
         timers['misc_mask'].tic()
@@ -120,6 +128,7 @@ def im_detect_all(model, im, box_proposals=None, timers=None, use_polygon=True):
         timers['misc_mask'].toc()
     else:
         cls_segms = None
+        round_boxes = None
 
     if cfg.MODEL.KEYPOINTS_ON and boxes.shape[0] > 0:
         timers['im_detect_keypoints'].tic()
@@ -134,6 +143,7 @@ def im_detect_all(model, im, box_proposals=None, timers=None, use_polygon=True):
         timers['misc_keypoints'].toc()
     else:
         cls_keyps = None
+
     if use_polygon:
         return cls_boxes, cls_segms, cls_keyps
     else:
@@ -143,9 +153,9 @@ def im_conv_body_only(model, im, target_scale, target_max_size):
     inputs, im_scale = _get_blobs(im, None, target_scale, target_max_size)
 
     if cfg.PYTORCH_VERSION_LESS_THAN_040:
-        inputs['data'] = Variable(torch.from_numpy(inputs['data']), volatile=True).cuda()
+        inputs['data'] = Variable(torch.from_numpy(inputs['data']), volatile=True).to(torch.device(cfg.MODEL.DEVICE))
     else:
-        inputs['data'] = torch.from_numpy(inputs['data']).cuda()
+        inputs['data'] = torch.from_numpy(inputs['data']).to(torch.device(cfg.MODEL.DEVICE))
     inputs.pop('im_info')
 
     blob_conv = model.module.convbody_net(**inputs)
@@ -155,6 +165,8 @@ def im_conv_body_only(model, im, target_scale, target_max_size):
 
 def im_detect_bbox(model, im, target_scale, target_max_size, boxes=None):
     """Prepare the bbox for testing"""
+    torch.cuda.synchronize
+    t_sta = time.time()
     inputs, im_scale = _get_blobs(im, boxes, target_scale, target_max_size)
     if cfg.DEDUP_BOXES > 0 and not cfg.MODEL.FASTER_RCNN:
         v = np.array([1, 1e3, 1e6, 1e9, 1e12])
@@ -186,7 +198,16 @@ def im_detect_bbox(model, im, target_scale, target_max_size, boxes=None):
     # print("Before Return Dict")
     # print('------------------')
     # print()
+    if cfg.SYNCHRONIZE:
+        torch.cuda.synchronize
+        print("Time from imdetect_bbox to right before model forward call: %.3f"% (time.time()-t_sta))
     return_dict = model(**inputs)
+
+    if isinstance(return_dict['rois'],np.ndarray):
+        return_dict['rois'] = torch.from_numpy(return_dict['rois'])
+
+    if cfg.SYNCHRONIZE:
+        torch.cuda.synchronize
 
     if cfg.MODEL.FASTER_RCNN:
         rois = return_dict['rois'].data.cpu().numpy()
@@ -421,15 +442,21 @@ def im_detect_mask(model, im_scale, boxes, blob_conv):
     if boxes.shape[0] == 0:
         pred_masks = np.zeros((0, M, M), np.float32)
         return pred_masks
-
+    if cfg.SYNCHRONIZE:
+        torch.cuda.synchronize
+    t_st = time.time()
     inputs = {'mask_rois': _get_rois_blob(boxes, im_scale)}
 
     # Add multi-level rois for FPN
     if cfg.FPN.MULTILEVEL_ROIS:
         _add_multilevel_rois_for_test(inputs, 'mask_rois')
 
+    if cfg.SYNCHRONIZE:
+        torch.cuda.synchronize
     pred_masks = model.module.mask_net(blob_conv, inputs)
     pred_masks = pred_masks.data.cpu().numpy().squeeze()
+    if cfg.SYNCHRONIZE:
+        torch.cuda.synchronize
 
     if cfg.MRCNN.CLS_SPECIFIC_MASK:
         pred_masks = pred_masks.reshape([-1, cfg.MODEL.NUM_CLASSES, M, M])
@@ -841,8 +868,11 @@ def box_results_with_nms_and_limit(scores, boxes):  # NOTE: support single-batch
             # print(j)
             # print("About to use TEST.NMS")
             # print('Num Proposals First', (dets_j.shape))
+            if cfg.SYNCHRONIZE:
+            	torch.cuda.synchronize
             keep = box_utils.nms(dets_j, cfg.TEST.NMS)
-
+            if cfg.SYNCHRONIZE:
+            	torch.cuda.synchronize
 
 
             nms_dets = dets_j[keep, :]
@@ -1037,7 +1067,7 @@ def _get_blobs(im, rois, target_scale, target_max_size):
         blobs['rois'] = _get_rois_blob(rois, im_scale)
     return blobs, im_scale
 
-def efficiency_calculation_union(gt_box, gt_mask, pred_boxes, pred_masks, adc_image):
+def efficiency_calculation(gt_box, gt_mask, pred_boxes, pred_masks, adc_image):
     ### Take in one ground truth box and its mask, then loop through all
     ### the predicted boxes adding up their coverages to find what % of GT is
     ### covered by their union

@@ -1,3 +1,6 @@
+from __future__ import division
+from __future__ import absolute_import
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -9,11 +12,13 @@ import numpy as np
 from core.config import cfg
 import nn as mynn
 import utils.net as net_utils
+import time
+
 
 
 class fast_rcnn_outputs(nn.Module):
     def __init__(self, dim_in, validation=False):
-        super().__init__()
+        super(fast_rcnn_outputs,self).__init__()
         self.cls_score = nn.Linear(dim_in, cfg.MODEL.NUM_CLASSES)
         if cfg.MODEL.CLS_AGNOSTIC_BBOX_REG:  # bg and fg
             self.bbox_pred = nn.Linear(dim_in, 4 * 2)
@@ -40,24 +45,37 @@ class fast_rcnn_outputs(nn.Module):
         return detectron_weight_mapping, orphan_in_detectron
 
     def forward(self, x):
+        t_st = time.time()
+
+        if cfg.SYNCHRONIZE:
+            torch.cuda.synchronize
+            print('Before BoxClass')
         if x.dim() == 4:
             x = x.squeeze(3).squeeze(2)
         cls_score = self.cls_score(x)
         if not self.training and not self.validation:
             cls_score = F.softmax(cls_score, dim=1)
         bbox_pred = self.bbox_pred(x)
-
+        if cfg.SYNCHRONIZE:
+            torch.cuda.synchronize
+            print("Time taken to Predict Box Class: %.3f " % (time.time() - t_st))
+            print("After BoxClass")
         return cls_score, bbox_pred
 
 
 def fast_rcnn_losses(cls_score, bbox_pred, label_int32, bbox_targets,
                      bbox_inside_weights, bbox_outside_weights):
-    device_id = cls_score.get_device()
-    rois_label = Variable(torch.from_numpy(label_int32.astype('int64'))).cuda(device_id)
+    device_id = ''
+    if cls_score.is_cuda:
+        device_id = cls_score.get_device()
+    else:
+        device_id = 'cpu'
+    rois_label = Variable(torch.from_numpy(label_int32.astype('int64'))).to(torch.device(device_id))
+    loss_cls = F.cross_entropy(cls_score, rois_label)
 
-    bbox_targets = Variable(torch.from_numpy(bbox_targets)).cuda(device_id)
-    bbox_inside_weights = Variable(torch.from_numpy(bbox_inside_weights)).cuda(device_id)
-    bbox_outside_weights = Variable(torch.from_numpy(bbox_outside_weights)).cuda(device_id)
+    bbox_targets = Variable(torch.from_numpy(bbox_targets)).to(torch.device(device_id))
+    bbox_inside_weights = Variable(torch.from_numpy(bbox_inside_weights)).to(torch.device(device_id))
+    bbox_outside_weights = Variable(torch.from_numpy(bbox_outside_weights)).to(torch.device(device_id))
     loss_bbox = net_utils.smooth_l1_loss(
         bbox_pred, bbox_targets, bbox_inside_weights, bbox_outside_weights)
 
@@ -73,7 +91,6 @@ def fast_rcnn_losses(cls_score, bbox_pred, label_int32, bbox_targets,
 
     num_cosm = (( rois_label == 1 ).float() * cls_preds.eq(rois_label).float() ).float().sum(dim=0).float()
     num_neut = (( rois_label == 5 ).float() * cls_preds.eq(rois_label).float() ).float().sum(dim=0).float()
-    num_vertex = (( rois_label == 7 ).float() * cls_preds.eq(rois_label).float() ).float().sum(dim=0).float()
 
     den_cosm = (rois_label == 1 ).float().sum(dim=0).float()
     den_neut = (rois_label == 5 ).float().sum(dim=0).float()
@@ -97,7 +114,6 @@ def fast_rcnn_losses(cls_score, bbox_pred, label_int32, bbox_targets,
     print()
     print("num_neut: ", num_neut.item())
     print("num_cosm: ", num_cosm.item())
-    print("num_vertex: ", num_vertex.item())
     if (num_neut ==0) or (num_cosm ==0):
         neut_weight=1.
         cosmic_weight=1.
@@ -109,7 +125,6 @@ def fast_rcnn_losses(cls_score, bbox_pred, label_int32, bbox_targets,
     weight[0] = 1
     weight[1] = cosmic_weight
     weight[5] = neut_weight
-    weight[7] = 1
      # = np.array([1,cosmic_weight,0,0,0,neut_weight,0], np.float32)
     weight = (torch.from_numpy(weight)).cuda(device_id)
     loss_cls = F.cross_entropy(cls_score,rois_label,weight)
@@ -126,7 +141,7 @@ def fast_rcnn_losses(cls_score, bbox_pred, label_int32, bbox_targets,
 class roi_2mlp_head(nn.Module):
     """Add a ReLU MLP with two hidden layers."""
     def __init__(self, dim_in, roi_xform_func, spatial_scale):
-        super().__init__()
+        super(roi_2mlp_head,self).__init__()
         self.dim_in = dim_in
         self.roi_xform = roi_xform_func
         self.spatial_scale = spatial_scale
@@ -172,7 +187,7 @@ class roi_2mlp_head(nn.Module):
 class roi_Xconv1fc_head(nn.Module):
     """Add a X conv + 1fc head, as a reference if not using GroupNorm"""
     def __init__(self, dim_in, roi_xform_func, spatial_scale):
-        super().__init__()
+        super(roi_Xconv1fc_head,self).__init__()
         self.dim_in = dim_in
         self.roi_xform = roi_xform_func
         self.spatial_scale = spatial_scale
@@ -234,7 +249,7 @@ class roi_Xconv1fc_head(nn.Module):
 class roi_Xconv1fc_gn_head(nn.Module):
     """Add a X conv + 1fc head, with GroupNorm"""
     def __init__(self, dim_in, roi_xform_func, spatial_scale):
-        super().__init__()
+        super(roi_Xconv1fc_gn_head,self).__init__()
         self.dim_in = dim_in
         self.roi_xform = roi_xform_func
         self.spatial_scale = spatial_scale

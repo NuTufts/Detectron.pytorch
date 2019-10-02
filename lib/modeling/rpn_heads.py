@@ -1,3 +1,5 @@
+from __future__ import division
+
 import torch
 from torch import nn
 from torch.nn import init
@@ -9,6 +11,7 @@ from modeling.generate_proposals import GenerateProposalsOp
 from modeling.generate_proposal_labels import GenerateProposalLabelsOp
 import modeling.FPN as FPN
 import utils.net as net_utils
+import time
 
 
 # ---------------------------------------------------------------------------- #
@@ -38,7 +41,7 @@ def generic_rpn_losses(*inputs, **kwargs):
 class single_scale_rpn_outputs(nn.Module):
     """Add RPN outputs to a single scale model (i.e., no FPN)."""
     def __init__(self, dim_in, spatial_scale, validation=False):
-        super().__init__()
+        super(single_scale_rpn_outputs,self).__init__()
         self.validation = validation
         self.dim_in = dim_in
         self.dim_out = dim_in if cfg.RPN.OUT_DIM_AS_IN_DIM else cfg.RPN.OUT_DIM
@@ -90,6 +93,10 @@ class single_scale_rpn_outputs(nn.Module):
         im_info: (CPU Variable)
         roidb: (list of ndarray)
         """
+        t_st = time.time()
+        if cfg.SYNCHRONIZE:
+            torch.cuda.synchronize
+            print("Before RPN")
         rpn_conv = F.relu(self.RPN_conv(x), inplace=True)
 
         rpn_cls_logits = self.RPN_cls_score(rpn_conv)
@@ -128,7 +135,10 @@ class single_scale_rpn_outputs(nn.Module):
             else:
                 # Alias rois to rpn_rois for inference
                 return_dict['rois'] = return_dict['rpn_rois']
-
+        if cfg.SYNCHRONIZE:
+            torch.cuda.synchronize
+            print("Time to run RPN_Heads forward: %0.3f" % (time.time() - t_st))
+            print("After RPN Forward")
 
         return return_dict
 

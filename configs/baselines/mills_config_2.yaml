@@ -1,11 +1,21 @@
 MODEL:
   TYPE: generalized_rcnn
   CONV_BODY: ResNet.ResNet50_conv4_body
-  NUM_CLASSES: 8
+  NUM_CLASSES: 7
   FASTER_RCNN: True
   MASK_ON: True
+  LOAD_IMAGENET_PRETRAINED_WEIGHTS: True
+  DEVICE: 'cuda:0'
+  # DEVICE: 'cpu'
+  # Options include 'cpu', 'cuda:0'
+  # tensor.to(torch.device(DEVICE))
+  # get_device() returns the torch.device a tensor is on, but make sure to check
+  # if the tensor is on a gpu first with tensor.is_cuda false -> cpu
 RESNETS:
   IMAGENET_PRETRAINED_WEIGHTS: 'data/pretrained_model/resnet50_caffe.pth'
+  FREEZE_AT: 0
+
+SYNCHRONIZE: True
 NUM_GPUS: 1
 PLANE: 2
 SOLVER:

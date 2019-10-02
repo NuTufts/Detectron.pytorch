@@ -156,18 +156,12 @@ def main():
     if not torch.cuda.is_available():
         sys.exit("Need a CUDA device to run the code.")
 
-    if args.cuda or cfg.NUM_GPUS > 0:
-        cfg.CUDA = True
-    else:
-        raise ValueError("Need Cuda device to run !")
+    # if args.cuda or cfg.NUM_GPUS > 0:
+    #     cfg.CUDA = True
+    # else:
+    #     raise ValueError("Need Cuda device to run !")
 
-    if args.dataset == "coco2017":
-        cfg.TRAIN.DATASETS = ('coco_2017_train',)
-        cfg.MODEL.NUM_CLASSES = 81
-    elif args.dataset == "keypoints_coco2017":
-        cfg.TRAIN.DATASETS = ('keypoints_coco_2017_train',)
-        cfg.MODEL.NUM_CLASSES = 2
-    elif args.dataset == "particle":
+    if args.dataset == "particle":
         cfg.TRAIN.DATASETS = ('particle_physics_train')
         cfg.MODEL.NUM_CLASSES = 7
         # 0=Muon (cosmic), 1=Neutron, 2=Proton, 3=Electron, 4=neutrino, 5=Other
@@ -269,8 +263,11 @@ def main():
     ### Model ###
     maskRCNN = Generalized_RCNN()
 
-    if cfg.CUDA:
-        maskRCNN.cuda()
+
+    # if cfg.CUDA:
+    maskRCNN.to(torch.device(cfg.MODEL.DEVICE))
+    # else:
+    #     maskRCNN.cpu()
 
     ### Optimizer ###
     gn_param_nameset = set()
@@ -349,8 +346,8 @@ def main():
 
     lr = optimizer.param_groups[0]['lr']  # lr of non-bias parameters, for commmand line outputs.
 
-    maskRCNN = mynn.DataParallel(maskRCNN, cpu_keywords=['im_info', 'roidb'],
-                                 minibatch=True)
+    maskRCNN = mynn.DataSingular(maskRCNN, cpu_keywords=['im_info', 'roidb'],
+                             minibatch=True , device_id=[cfg.MODEL.DEVICE]) #
 
     ### Training Setups ###
     args.run_name = misc_utils.get_run_name() + '_step'
