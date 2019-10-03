@@ -30,6 +30,10 @@ The output is a little hard to parse, so check for errors!
 In order to train network use python script
 python tools/train_particle.py (see file for list of args)
 
+For training the file you are training on lives in lib/datasets/larcvdataset.py
+look for a root file, and look make sure the number of entries is what you want
+it to be.
+
 In order to deploy network use python script
 python tools/infer_particle.py (see file for list of args)
 
