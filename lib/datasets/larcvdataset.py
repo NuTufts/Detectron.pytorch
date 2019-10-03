@@ -187,7 +187,10 @@ class LArCVDataset(object):
         assert image2d_adc_crop_chain.GetEntries() == clustermask_cluster_crop_chain.GetEntries()
 
         self.NUM_IMAGES=clustermask_cluster_crop_chain.GetEntries()
-        self.NUM_IMAGES=50
+        print("Total Possible Entries: ", self.NUM_IMAGES)
+        self.NUM_IMAGES=100000
+        print("Actually Using: ", self.NUM_IMAGES)
+
         # self.NUM_IMAGES=clustermask_cluster_crop_chain.GetEntries() - 154000
 
 
@@ -409,8 +412,6 @@ class LArCVDataset(object):
         im_has_visible_keypoints = False
         for ix, obj in enumerate(valid_objs):
             cls = int(larcv.as_ndarray_bbox(obj['mask'])[4])
-            if cls == 7:
-                print("Vertex added")
             boxes[ix, :] = obj['clean_bbox']
             gt_classes[ix] = cls
             seg_areas[ix] = obj['area']
@@ -430,7 +431,6 @@ class LArCVDataset(object):
                 gt_overlaps[ix, cls] = 1.0
 
         entry['boxes'] = np.append(entry['boxes'], boxes, axis=0)
-        print(entry['boxes'].shape)
         entry_ious = get_ious(entry['boxes'])
         if len(entry['boxes']) > 1:
             max_iou = entry_ious.max()
@@ -594,7 +594,7 @@ class LArCVDataset(object):
             gt_kps[1, i] = y[i]
             gt_kps[2, i] = v[i]
         return gt_kps
-    
+
 
 def add_proposals(roidb, rois, scales, crowd_thresh):
     """Add proposal boxes (rois) to an roidb that has ground-truth annotations

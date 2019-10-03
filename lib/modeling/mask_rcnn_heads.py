@@ -1,3 +1,6 @@
+from __future__ import absolute_import
+from __future__ import division
+
 from functools import partial
 import numpy as np
 
@@ -16,7 +19,11 @@ import utils.net as net_utils
 import datasets.dummy_datasets as datasets
 import numpy as np
 import utils.vis as vis_utils
-import cv2
+import time
+try:
+    import cv2
+except:
+    pass
 
 
 # ---------------------------------------------------------------------------- #
@@ -26,7 +33,7 @@ import cv2
 class mask_rcnn_outputs(nn.Module):
     """Mask R-CNN specific outputs: either mask logits or probs."""
     def __init__(self, dim_in, validation=False):
-        super().__init__()
+        super(mask_rcnn_outputs,self).__init__()
         self.validation=validation
         self.dim_in = dim_in
 
@@ -68,32 +75,24 @@ class mask_rcnn_outputs(nn.Module):
         return mapping, orphan_in_detectron
 
     def forward(self, x):
+        if cfg.SYNCHRONIZE:
+            torch.cuda.synchronize
+            print("Before Mask")
+        t_st = time.time()
+
         x = self.classify(x)
         if cfg.MRCNN.UPSAMPLE_RATIO > 1:
             x = self.upsample(x)
         if not self.training and not self.validation:
             x = torch.sigmoid(x)
             # x = F.sigmoid(x)
+        if cfg.SYNCHRONIZE:
+           torch.cuda.synchronize
+           print("Time taken to do mask forward: %.3f " % (time.time()- t_st))
+           print("After Mask")
+
+
         return x
-
-
-# def mask_rcnn_losses(mask_pred, rois_mask, rois_label, weight):
-#     n_rois, n_classes, _, _ = mask_pred.size()
-#     rois_mask_label = rois_label[weight.data.nonzero().view(-1)]
-#     # select pred mask corresponding to gt label
-#     if cfg.MRCNN.MEMORY_EFFICIENT_LOSS:  # About 200~300 MB less. Not really sure how.
-#         mask_pred_select = Variable(
-#             mask_pred.data.new(n_rois, cfg.MRCNN.RESOLUTION,
-#                                cfg.MRCNN.RESOLUTION))
-#         for n, l in enumerate(rois_mask_label.data):
-#             mask_pred_select[n] = mask_pred[n, l]
-#     else:
-#         inds = rois_mask_label.data + \
-#           torch.arange(0, n_rois * n_classes, n_classes).long().cuda(rois_mask_label.data.get_device())
-#         mask_pred_select = mask_pred.view(-1, cfg.MRCNN.RESOLUTION,
-#                                           cfg.MRCNN.RESOLUTION)[inds]
-#     loss = F.binary_cross_entropy_with_logits(mask_pred_select, rois_mask)
-#     return loss
 
 
 def mask_rcnn_losses(masks_pred, masks_int32):
@@ -103,8 +102,12 @@ def mask_rcnn_losses(masks_pred, masks_int32):
     # print('Shape of pred: ', masks_pred.shape)
 
     n_rois, n_classes, _, _ = masks_pred.size()
-    device_id = masks_pred.get_device()
-    masks_gt = Variable(torch.from_numpy(masks_int32.astype('float32'))).cuda(device_id)
+    device_id = ""
+    if masks_pred.is_cuda:
+        device_id = masks_pred.get_device()
+    else:
+        device_id = 'cpu'
+    masks_gt = Variable(torch.from_numpy(masks_int32.astype('float32'))).to(torch.device(device_id))
     el1 = float(np.amax(masks_int32))
     el2 = float(torch.max(masks_gt))
 
@@ -195,7 +198,9 @@ def mask_rcnn_losses(masks_pred, masks_int32):
         num_on=1
 
     weight = weight  * ( (1-masks_gt)*total_num/num_off + (masks_gt)*total_num/num_on )
-
+    if cfg.SYNCHRONIZE:
+        torch.cuda.synchronize
+    t_st =time.time()
 
     # print()
     # # print('masks_gt is type: ', type(masks_gt))
@@ -230,23 +235,21 @@ def mask_rcnn_losses(masks_pred, masks_int32):
     # print()
     # print()
     mask_accuracies =  np.array([],np.float32)
-    # print("masks_pred.shape", "masks_gt.shape")
-    # print(masks_pred.shape, masks_gt.view(masks_pred.shape).shape, weight.view(masks_pred.shape).shape)
-    # np_wei = weight.view(masks_pred.shape).cpu().numpy()
-    # print(np_wei.shape)
-    # for box in range(masks_pred.shape[0]):
-    #     print()
-    #     for class_num in range(7):
-    #         print(np_wei[box][class_num][0][0])
+
 
 
     loss = F.binary_cross_entropy_with_logits(
         masks_pred.view(n_rois, -1), masks_gt, weight, reduction='sum')
+    if cfg.SYNCHRONIZE:
+        torch.cuda.synchronize
+        print("Time taken to calc loss: %.3f " % (time.time()- t_st))
     # print()
     # print('loss is type: ', type(loss))
     # print('loss shape is: ', loss.shape)
     # print()
     loss /= total_for_avg
+    if cfg.SYNCHRONIZE:
+    	torch.cuda.synchronize
     return loss * cfg.MRCNN.WEIGHT_LOSS_MASK , mask_accuracies
 
 
@@ -278,7 +281,7 @@ def mask_rcnn_fcn_head_v1up(dim_in, roi_xform_func, spatial_scale):
 class mask_rcnn_fcn_head_v1upXconvs(nn.Module):
     """v1upXconvs design: X * (conv 3x3), convT 2x2."""
     def __init__(self, dim_in, roi_xform_func, spatial_scale, num_convs):
-        super().__init__()
+        super(mask_rcnn_fcn_head_v1upXconvs,self).__init__()
         self.dim_in = dim_in
         self.roi_xform = roi_xform_func
         self.spatial_scale = spatial_scale
@@ -342,7 +345,7 @@ class mask_rcnn_fcn_head_v1upXconvs(nn.Module):
 class mask_rcnn_fcn_head_v1upXconvs_gn(nn.Module):
     """v1upXconvs design: X * (conv 3x3), convT 2x2, with GroupNorm"""
     def __init__(self, dim_in, roi_xform_func, spatial_scale, num_convs):
-        super().__init__()
+        super(mask_rcnn_fcn_head_v1upXconvs_gn,self).__init__()
         self.dim_in = dim_in
         self.roi_xform = roi_xform_func
         self.spatial_scale = spatial_scale
@@ -414,7 +417,7 @@ class mask_rcnn_fcn_head_v0upshare(nn.Module):
     v0upshare design: conv5, convT 2x2.
     """
     def __init__(self, dim_in, roi_xform_func, spatial_scale, validation=False):
-        super().__init__()
+        super(mask_rcnn_fcn_head_v0upshare,self).__init__()
         self.validation =validation
         self.dim_in = dim_in
         self.roi_xform = roi_xform_func
@@ -461,8 +464,13 @@ class mask_rcnn_fcn_head_v0upshare(nn.Module):
             # batch (roi) has corresponding mask groundtruth, namely having positive values in
             # roi_has_mask_int32.
             inds = np.nonzero(roi_has_mask_int32 > 0)[0]
-            inds = Variable(torch.from_numpy(inds)).cuda(x.get_device())
-            # print("feat, before upconv",x.shape)
+            device_id = ''
+            if x.is_cuda:
+                device_id = x.get_device()
+            else:
+                device_id = 'cpu'
+
+            inds = Variable(torch.from_numpy(inds)).to(torch.device(device_id))
             x = x[inds]
             # print("feat, upconv: ", x.shape)
         else:
@@ -487,7 +495,7 @@ class mask_rcnn_fcn_head_v0upshare(nn.Module):
 class mask_rcnn_fcn_head_v0up(nn.Module):
     """v0up design: conv5, deconv 2x2 (no weight sharing with the box head)."""
     def __init__(self, dim_in, roi_xform_func, spatial_scale):
-        super().__init__()
+        super(mask_rcnn_fcn_head_v0up,self).__init__()
         self.dim_in = dim_in
         self.roi_xform = roi_xform_func
         self.spatial_scale = spatial_scale

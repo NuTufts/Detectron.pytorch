@@ -71,7 +71,6 @@ def fast_rcnn_losses(cls_score, bbox_pred, label_int32, bbox_targets,
     else:
         device_id = 'cpu'
     rois_label = Variable(torch.from_numpy(label_int32.astype('int64'))).to(torch.device(device_id))
-    loss_cls = F.cross_entropy(cls_score, rois_label)
 
     bbox_targets = Variable(torch.from_numpy(bbox_targets)).to(torch.device(device_id))
     bbox_inside_weights = Variable(torch.from_numpy(bbox_inside_weights)).to(torch.device(device_id))
@@ -126,7 +125,7 @@ def fast_rcnn_losses(cls_score, bbox_pred, label_int32, bbox_targets,
     weight[1] = cosmic_weight
     weight[5] = neut_weight
      # = np.array([1,cosmic_weight,0,0,0,neut_weight,0], np.float32)
-    weight = (torch.from_numpy(weight)).cuda(device_id)
+    weight = (torch.from_numpy(weight)).to(torch.device(device_id))
     loss_cls = F.cross_entropy(cls_score,rois_label,weight)
 
 

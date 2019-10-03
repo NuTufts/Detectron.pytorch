@@ -135,11 +135,11 @@ class single_scale_rpn_outputs(nn.Module):
             else:
                 # Alias rois to rpn_rois for inference
                 return_dict['rois'] = return_dict['rpn_rois']
+
         if cfg.SYNCHRONIZE:
             torch.cuda.synchronize
             print("Time to run RPN_Heads forward: %0.3f" % (time.time() - t_st))
             print("After RPN Forward")
-
         return return_dict
 
 

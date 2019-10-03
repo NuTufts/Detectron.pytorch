@@ -23,21 +23,29 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-import cv2
+try:
+    import cv2
+except:
+    pass
 import numpy as np
 import os
-import pycocotools.mask as mask_util
+try:
+    import pycocotools.mask as mask_util
+except:
+    pass
 
 from utils.colormap import colormap
 import utils.keypoints as keypoint_utils
 
 # Use a non-interactive backend
-import matplotlib
-matplotlib.use('Agg')
-import matplotlib.pyplot as plt
-from matplotlib.patches import Polygon
-
-plt.rcParams['pdf.fonttype'] = 42  # For editing in Adobe Illustrator
+try:
+    import matplotlib
+    matplotlib.use('Agg')
+    import matplotlib.pyplot as plt
+    from matplotlib.patches import Polygon
+    plt.rcParams['pdf.fonttype'] = 42  # For editing in Adobe Illustrator
+except:
+    pass
 
 
 _GRAY = (218, 227, 218)
@@ -106,7 +114,7 @@ def get_class_string(class_index, score, dataset):
 
 def vis_one_image(
         im, im_name, output_dir, boxes, segms=None, keypoints=None, thresh=0.9,
-        kp_thresh=2, dpi=600, box_alpha=0.0, dataset=None, show_class=False,
+        kp_thresh=2, dpi=200, box_alpha=0.0, dataset=None, show_class=False,
         ext='pdf', plain_img=False, no_adc=False, show_roi_num=False, entry=-1):
     """Visual debugging of detections."""
     # print("SHAPE DESIRED:", boxes.shape)

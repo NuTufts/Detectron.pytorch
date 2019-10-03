@@ -20,7 +20,10 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-import cv2
+try:
+    import cv2
+except:
+    pass
 import numpy as np
 
 from core.config import cfg

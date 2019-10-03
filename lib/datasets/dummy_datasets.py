@@ -50,7 +50,7 @@ def get_particle_dataset():
     """A dummy particle dataset that includes only the 'classes' field."""
     ds = AttrDict()
     classes = [
-        '__background__', 'Cosmic', 'Neutron', 'Proton', 'Electron', 'Neutrino', 'Other', 'Vertex'
+        '__background__', 'Cosmic', 'Neutron', 'Proton', 'Electron', 'Neutrino', 'Other'
     ]
     ds.classes = {i: name for i, name in enumerate(classes)}
     return ds

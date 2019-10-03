@@ -48,10 +48,10 @@ class DataParallel(Module):
 
     # TODO: update notes/cuda.rst when this class handles 8+ GPUs well
 
-    def __init__(self, module, device_ids=None, output_device=None, dim=0, 
-                 cpu_keywords=[], minibatch=False, batch_outputs=True):
+    def __init__(self, module, device_ids=None, output_device=None, dim=0,
+                 cpu_keywords=[], minibatch=False, batch_outputs=True): #cfg_device=None
         super(DataParallel, self).__init__()
-
+        # Orig Code:
         if not torch.cuda.is_available():
             self.module = module
             self.device_ids = []
@@ -70,11 +70,33 @@ class DataParallel(Module):
         self.cpu_keywords = cpu_keywords
         self.minibatch = minibatch
         self.batch_outputs = batch_outputs
+        print(self.device_ids , "Dataparallel device_ids1")
+        self.device_ids = ['cpu']
+        # New Code:
+        # if not torch.cuda.is_available():
+        #     self.module = module
+        #     self.device_ids = []
+        #     return
+        #
+        # if device_ids is None:
+        #     device_ids = cfg_device
+        # if output_device is None:
+        #     output_device = cfg_device
+        # self.dim = dim
+        # self.module = module
+        # self.device_ids = [0]
+        # self.output_device = output_device
+        # if len(self.device_ids) == 1:
+        #     self.module.to(torch.device(self.device_ids[0]))
+        # self.cpu_keywords = cpu_keywords
+        # self.minibatch = minibatch
+        # self.batch_outputs = batch_outputs
+
+
 
     def forward(self, *inputs, **kwargs):
         if not self.device_ids:
             return self.module(*inputs, **kwargs)
-
         if self.minibatch:
             inputs_list, kwargs_list = [], []
             for i, device_id in enumerate(self.device_ids):
