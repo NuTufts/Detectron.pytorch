@@ -27,10 +27,10 @@ source make.sh
 
 The output is a little hard to parse, so check for errors!
 
-In order to train code use python script
+In order to train network use python script
 python tools/train_particle.py (see file for list of args)
 
-In order to test code use python script
+In order to deploy network use python script
 python tools/infer_particle.py (see file for list of args)
 
 You'll need to have sourced larcv for these to work. You'll also need a cfg file
