@@ -135,14 +135,18 @@ def affine_grid_gen(rois, input_size, grid_size):
 
 def save_ckpt(output_dir, args, model, optimizer):
     """Save checkpoint"""
+    """Note this is defined in train_particle too, and that one is used"""
     if args.no_save:
         return
     ckpt_dir = os.path.join(output_dir, 'ckpt')
     if not os.path.exists(ckpt_dir):
         os.makedirs(ckpt_dir)
     save_name = os.path.join(ckpt_dir, 'model_{}_{}.pth'.format(args.epoch, args.step))
+    print("Type:",type(model))
     if isinstance(model, mynn.DataParallel):
         model = model.module
+    print("Type:",type(model))
+
     # if isinstance(model, mynn.DataSingular):
     #     model = model.module
     # TODO: (maybe) Do not save redundant shared params
@@ -166,8 +170,8 @@ def load_ckpt(model, ckpt):
     state_dict = {}
     for name in ckpt:
         # print(name, "IS NAME")
-        # if mapping[name]:
-        state_dict[name] = ckpt[name]
+        if mapping[name]:
+            state_dict[name] = ckpt[name]
     model.load_state_dict(state_dict, strict=False)
 
 
