@@ -143,6 +143,8 @@ def save_ckpt(output_dir, args, model, optimizer):
     save_name = os.path.join(ckpt_dir, 'model_{}_{}.pth'.format(args.epoch, args.step))
     if isinstance(model, mynn.DataParallel):
         model = model.module
+    # if isinstance(model, mynn.DataSingular):
+    #     model = model.module
     # TODO: (maybe) Do not save redundant shared params
     # model_state_dict = model.state_dict()
     torch.save({
@@ -157,10 +159,15 @@ def save_ckpt(output_dir, args, model, optimizer):
 def load_ckpt(model, ckpt):
     """Load checkpoint"""
     mapping, _ = model.detectron_weight_mapping
+    # print("Here we go")
+    # print(mapping["Conv_Body.res1.conv1.weight"])
+    # for keys in mapping.keys():
+    #     print(keys)
     state_dict = {}
     for name in ckpt:
-        if mapping[name]:
-            state_dict[name] = ckpt[name]
+        # print(name, "IS NAME")
+        # if mapping[name]:
+        state_dict[name] = ckpt[name]
     model.load_state_dict(state_dict, strict=False)
 
 
