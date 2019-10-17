@@ -94,8 +94,12 @@ def im_detect_all(model, im, box_proposals=None, timers=None, use_polygon=True )
     # cls_boxes boxes and scores are separated by class and in the format used
     # for evaluating results
     timers['misc_bbox'].tic()
+    # print("boxes",boxes)
     scores, boxes, cls_boxes = box_results_with_nms_and_limit(scores, boxes)
-
+    # for cls_idx in range(7):
+    #     for box_idx in range(len(cls_boxes[cls_idx])):
+    #         if (cls_boxes[cls_idx][box_idx][4] > 0.7 ):
+    #             print(cls_boxes[cls_idx][box_idx])
     timers['misc_bbox'].toc()
 
     if cfg.MODEL.MASK_ON and boxes.shape[0] > 0:
@@ -219,6 +223,13 @@ def im_detect_bbox(model, im, target_scale, target_max_size, boxes=None):
     scores = return_dict['cls_score'].data.cpu().numpy().squeeze()
     # In case there is 1 proposal
     scores = scores.reshape([-1, scores.shape[-1]])
+    scores_nobk = scores[:,1:]
+    score_max = scores_nobk.max(1)
+    # print(score_max.shape)
+    # print(rois.shape)
+    # for idx in range(rois.shape[0]):
+    #     if (score_max[idx] > .7 ):
+    #         print(rois[idx], score_max[idx])
 
     if cfg.TEST.BBOX_REG:
         # Apply bounding-box regression deltas

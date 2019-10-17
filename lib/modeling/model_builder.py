@@ -190,7 +190,7 @@ class Generalized_RCNN(nn.Module):
 
         # This is resnet here
         blob_conv = self.Conv_Body(im_data)
-
+        print(type(blob_conv), "type blob conv")
         rpn_ret = self.RPN(blob_conv, im_info, roidb)
         # self.timers['rpn_pass'] += time.time() - relative_time
         relative_time = time.time()
@@ -332,13 +332,15 @@ class Generalized_RCNN(nn.Module):
                     cls_segms = segm_results(boxes_3, mask_pred, boxes_2, 512, 832)
 
                     print('How many boxes: ', len(boxes))
-                    print('How many in each box:', len(boxes[0]))
+                    print('How many in each box:')
+                    for idx in range(7):
+                        print(idx, ": ",len(boxes[idx]))
 
                     im_numpy = im_data.cpu()[0].numpy()
                     im_numpy = np.swapaxes(im_numpy,2,1)
                     im_numpy = np.swapaxes(im_numpy,2,0)
-                    im_numpy[im_numpy>0] = 100
-                    im_numpy[im_numpy<=0] =0
+                    im_numpy[im_numpy>0]  = 100
+                    im_numpy[im_numpy<=0] = 0
 
                     # print('LENGTH:', len(im_numpy),len(im_numpy[0]))
                     vis_utils.vis_one_image(

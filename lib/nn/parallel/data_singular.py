@@ -62,7 +62,7 @@ class DataSingular(Module):
         self.cpu_keywords = cpu_keywords
         self.minibatch = minibatch
         self.batch_outputs = batch_outputs
-        print(self.device_id , "Dataparallel device_id1")
+        print(self.device_id , "DataSingular device_id1")
         # self.device_id = ['cpu']
 
 

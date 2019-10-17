@@ -89,6 +89,11 @@ def parse_args():
         help='Perform Infer on num_images or total images in file, whichever is less',
         default=10, type=int)
 
+    parser.add_argument(
+        '--start_image',
+        help='Number of image to start on from root file',
+        default=0, type=int)
+
     args = parser.parse_args()
 
 
@@ -168,7 +173,7 @@ def main():
         file_list = args.images
 
     #collect files
-    image2d_adc_crop_chain = ROOT.TChain("image2d_adc_tree")
+    image2d_adc_crop_chain = ROOT.TChain("image2d_wire_tree")
     for file in file_list: image2d_adc_crop_chain.AddFile(file)
 
 
@@ -178,6 +183,10 @@ def main():
 
     if args.num_images > num_images:
         args.num_images = num_images
+    start_image = args.start_image
+    if start_image+args.num_images > num_images:
+        start_image = 0
+
     print("Running through:", args.num_images, " images.")
     # Initialize Timing counts
     t_total = 0
@@ -186,18 +195,16 @@ def main():
     t_detection = 0
     t_after_detect_vis = 0
     t_vis = 0
-    for i in xrange(args.num_images):
+    for i in xrange(start_image, start_image+args.num_images):
         t_start = time.time()
         print('img', i)
         image2d_adc_crop_chain.GetEntry(i)
-        entry_image2dadc_crop_data = image2d_adc_crop_chain.image2d_adc_branch
+        entry_image2dadc_crop_data = image2d_adc_crop_chain.image2d_wire_branch
         image2dadc_crop_array = entry_image2dadc_crop_data.as_vector()
-        im_2d = larcv.as_ndarray(image2dadc_crop_array[cfg.PLANE])
-        print(im_2d.shape)
+        im_2d = np.transpose(larcv.as_ndarray(image2dadc_crop_array[cfg.PLANE]))
         height, width = im_2d.shape
         # im = np.zeros ((height,width,3))
         im = np.moveaxis(np.array([np.copy(im_2d),np.copy(im_2d),np.copy(im_2d)]),0,2)
-        im_visualize = np.zeros ((height,width,3), 'float32')
         t_data_loaded = time.time()
         # print('height: ',roidb[i]['height'] , "     dim1: ",len(im_2d))
         # print('width: ',roidb[i]['width'] , "     dim2: ",len(im_2d[0]))
@@ -237,13 +244,14 @@ def main():
         t_after_detect = time.time()
         count_above =0
         for score_idx in range(len(cls_boxes[1])):
-            if cls_boxes[1][score_idx][4] > 0.7:
+            if cls_boxes[1][score_idx][4] > 0.4:
                 print("Score above threshold!")
                 count_above = count_above+1
             # else:
             #     print(cls_boxes[1][score_idx][4])
         print(count_above, " Boxes above threshold")
-
+        if cls_segms is None:
+            continue
         assert len(cls_boxes) == len(cls_segms)
         assert len(cls_boxes) == len(round_boxes)
         im_vis2 = np.zeros ((height,width,3), 'float32')
@@ -260,11 +268,12 @@ def main():
                     add_y = round_boxes[cls][roi][1]
                     segm_coo = cls_segms[cls][roi].tocoo()
                     for ii,jj,vv in zip(segm_coo.row, segm_coo.col, segm_coo.data):
-                        im_vis2[add_y + ii][add_x + jj][:] = 1.0*roi
+                        # print("In here")
+                        im_vis2[add_y + ii][add_x + jj][:] = 1.0*(roi+1)
         t_before_vis = time.time()
         vis_utils.vis_one_image(
             im_vis2[:, :, ::-1],  # BGR -> RGB for visualization
-            "cpu_mode"+str(i),
+            "output_im_"+str(i),
             args.output_dir,
             cls_boxes,
             None,
@@ -272,7 +281,7 @@ def main():
             dataset=dataset,
             box_alpha=0.3,
             show_class=True,
-            thresh=0.7,
+            thresh=0.4,
             kp_thresh=2,
             no_adc=False,
             entry=i,

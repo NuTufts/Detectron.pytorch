@@ -118,6 +118,7 @@ def mask_rcnn_losses(masks_pred, masks_int32):
     #vis code
     if cfg.TRAIN.MAKE_IMAGES and np.amax(masks_int32) > 0:
         resolution= cfg.MRCNN.RESOLUTION
+        print("n_rois", n_rois)
         for roi in range(n_rois):
             numpy_arr = masks_gt.cpu()[roi].numpy()
             ind =0
@@ -125,6 +126,8 @@ def mask_rcnn_losses(masks_pred, masks_int32):
                 if weight[roi][resolution*resolution*clas+5].item() ==1:
                     ind = clas
             # print('Array Copied')
+            print( np.amax(numpy_arr))
+            print(numpy_arr.shape)
             if np.amax(numpy_arr) != 1:
                 # print('continuing')
                 continue

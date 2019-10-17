@@ -8,6 +8,7 @@ from torch import nn
 
 from core.config import cfg
 import utils.boxes as box_utils
+import time
 # Doesn't need unless profiling
 
 
@@ -165,6 +166,11 @@ class GenerateProposalsOp(nn.Module):
         # 7. take after_nms_topN (e.g. 300)
         # 8. return the top proposals (-> RoIs top)
         if nms_thresh > 0:
+            t_st = time.time()
+            if cfg.SYNCHRONIZE:
+                print("Before NMS")
+                # torch.cuda.synchronize
+
             keep = box_utils.nms(np.hstack((proposals, scores)), nms_thresh)
             # print('nms keep:', keep.shape)
             if post_nms_topN > 0:
@@ -180,6 +186,11 @@ class GenerateProposalsOp(nn.Module):
 
 
             scores = scores[keep]
+            if cfg.SYNCHRONIZE:
+                # torch.cuda.synchronize
+                print("Time Spent Doing NMS: %0.3f" %(time.time() - t_st))
+                print("After nms")
+
         # print('final proposals:', proposals.shape, scores.shape)
         return proposals, scores
 
