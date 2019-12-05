@@ -139,9 +139,11 @@ def main():
     assert_and_infer_cfg(make_immutable=False)
 
     maskRCNN = Generalized_RCNN()
-
+    args.cuda = False
     if args.cuda:
-        maskRCNN.cuda()
+        # maskRCNN.cuda()
+        maskRCNN.to(torch.device('cuda:0'))
+
 
     if args.load_ckpt:
         load_name = args.load_ckpt
@@ -173,6 +175,7 @@ def main():
         file_list = args.images
 
     #collect files
+    # wire for full image, adc for crop image
     image2d_adc_crop_chain = ROOT.TChain("image2d_wire_tree")
     for file in file_list: image2d_adc_crop_chain.AddFile(file)
 
@@ -199,7 +202,7 @@ def main():
         t_start = time.time()
         print('img', i)
         image2d_adc_crop_chain.GetEntry(i)
-        entry_image2dadc_crop_data = image2d_adc_crop_chain.image2d_wire_branch
+        entry_image2dadc_crop_data = image2d_adc_crop_chain.image2d_wire_branch # wire for full image, adc for crop image
         image2dadc_crop_array = entry_image2dadc_crop_data.as_vector()
         im_2d = np.transpose(larcv.as_ndarray(image2dadc_crop_array[cfg.PLANE]))
         height, width = im_2d.shape
@@ -255,21 +258,21 @@ def main():
         assert len(cls_boxes) == len(cls_segms)
         assert len(cls_boxes) == len(round_boxes)
         im_vis2 = np.zeros ((height,width,3), 'float32')
-        # for row in range(height):
-        #     for col in range(width):
-        #         if (im[row][col][0] > 10):
-        #             im_vis2[row][col][:] = im[row][col][0]
+        for row in range(height):
+            for col in range(width):
+                if (im[row][col][0] > 10):
+                    im_vis2[row][col][:] = im[row][col][0]
 
-        for cls in range(len(cls_boxes)):
-            for roi in range(len(cls_boxes[cls])):
-                if cls_boxes[cls][roi][4] > 0.7:
-                    #code to adjust im_visualize
-                    add_x = round_boxes[cls][roi][0]
-                    add_y = round_boxes[cls][roi][1]
-                    segm_coo = cls_segms[cls][roi].tocoo()
-                    for ii,jj,vv in zip(segm_coo.row, segm_coo.col, segm_coo.data):
-                        # print("In here")
-                        im_vis2[add_y + ii][add_x + jj][:] = 1.0*(roi+1)
+        # for cls in range(len(cls_boxes)):
+        #     for roi in range(len(cls_boxes[cls])):
+        #         if cls_boxes[cls][roi][4] > 0.7:
+        #             #code to adjust im_visualize
+        #             add_x = round_boxes[cls][roi][0]
+        #             add_y = round_boxes[cls][roi][1]
+        #             segm_coo = cls_segms[cls][roi].tocoo()
+        #             for ii,jj,vv in zip(segm_coo.row, segm_coo.col, segm_coo.data):
+        #                 # print("In here")
+        #                 im_vis2[add_y + ii][add_x + jj][:] = 1.0*(roi+1)
         t_before_vis = time.time()
         vis_utils.vis_one_image(
             im_vis2[:, :, ::-1],  # BGR -> RGB for visualization

@@ -17,6 +17,7 @@ import modeling.keypoint_rcnn_heads as keypoint_rcnn_heads
 import utils.blob as blob_utils
 import utils.net as net_utils
 import utils.resnet_weights_helper as resnet_utils
+import utils.sparseresnet_weights_helper as sparseresnet_utils
 
 #to Vis
 import datasets.dummy_datasets as datasets
@@ -24,6 +25,8 @@ import numpy as np
 import utils.vis as vis_utils
 from core.test import segm_results
 import time
+
+import sparseconvnet as scn
 
 try:
     import cv2
@@ -99,6 +102,7 @@ class Generalized_RCNN(nn.Module):
 
         # Backbone for feature extraction
         self.Conv_Body = get_func(cfg.MODEL.CONV_BODY)()
+        self.Conv_Body.to(torch.device('cpu'))
 
         # Region Proposal Network
         if cfg.RPN.RPN_ON:
@@ -146,7 +150,7 @@ class Generalized_RCNN(nn.Module):
 
     def _init_modules(self):
         if cfg.MODEL.LOAD_IMAGENET_PRETRAINED_WEIGHTS:
-            resnet_utils.load_pretrained_imagenet_weights(self)
+            sparseresnet_utils.load_pretrained_imagenet_weights(self)
             # Check if shared weights are equaled
             if cfg.MODEL.MASK_ON and getattr(self.Mask_Head, 'SHARE_RES5', False):
                 assert compare_state_dict(self.Mask_Head.res5.state_dict(), self.Box_Head.res5.state_dict())
@@ -188,9 +192,22 @@ class Generalized_RCNN(nn.Module):
         if im_data.is_cuda:
             print(torch.get_device(im_data)," torch.get_device(im_data)")
 
+        # self.Conv_Body = get_func(cfg.MODEL.CONV_BODY)()
+        # self.Conv_Body.to(torch.device(device_id))
         # This is resnet here
+
+        sparsifier = scn.DenseToSparse(2)
+        padder = nn.ZeroPad2d((0,11,0,11))
+
+        sparsifier.to(torch.device('cpu'))
+        padder.to(torch.device('cpu'))
+
+        im_data = padder(im_data)
+        im_data = sparsifier(im_data)
+
+        # self.Conv_Body.to(torch.device('cpu'))
         blob_conv = self.Conv_Body(im_data)
-        print(type(blob_conv), "type blob conv")
+        import pdb; pdb.set_trace()
         rpn_ret = self.RPN(blob_conv, im_info, roidb)
         # self.timers['rpn_pass'] += time.time() - relative_time
         relative_time = time.time()

@@ -131,7 +131,7 @@ def save_ckpt(output_dir, args, step, train_size, model, optimizer):
     if not os.path.exists(ckpt_dir):
         os.makedirs(ckpt_dir)
     save_name = os.path.join(ckpt_dir, 'model_step{}.pth'.format(step))
-    if isinstance(model, mynn.DataParallel):
+    if isinstance(model, mynn.DataSingular):
         model = model.module
     model_state_dict = model.state_dict()
     torch.save({
@@ -178,7 +178,7 @@ def main():
     original_num_gpus = cfg.NUM_GPUS
     if args.batch_size is None:
         args.batch_size = original_batch_size
-    cfg.NUM_GPUS = torch.cuda.device_count()
+    cfg.NUM_GPUS = original_num_gpus
     assert (args.batch_size % cfg.NUM_GPUS) == 0, \
         'batch_size: %d, NUM_GPUS: %d' % (args.batch_size, cfg.NUM_GPUS)
     cfg.TRAIN.IMS_PER_BATCH = args.batch_size // cfg.NUM_GPUS
