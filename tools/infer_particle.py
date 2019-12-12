@@ -247,11 +247,14 @@ def main():
             assert len(cls_boxes) == len(cls_segms)
             assert len(cls_boxes) == len(round_boxes)
             im_vis2 = np.zeros ((height,width,3), 'float32')
-            for row in range(height):
-                for col in range(width):
-                    if (im[row][col][0] > 10):
-                        im_vis2[row][col][:] = im[row][col][0]
+            im_vis2 = np.moveaxis(np.array([np.copy(im),np.copy(im),np.copy(im)]),0,2)
 
+            # for row in range(height):
+            #     for col in range(width):
+            #         if (im[row][col][0] > 10):
+            #             im_vis2[row][col][:] = im[row][col][0]
+
+            #Having this next few forloops prints the masks over the raw image.
             for cls in range(len(cls_boxes)):
                 for roi in range(len(cls_boxes[cls])):
                     if cls_boxes[cls][roi][4] > 0.7:
