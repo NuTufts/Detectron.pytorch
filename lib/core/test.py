@@ -77,7 +77,6 @@ def im_detect_all(model, im, box_proposals=None, timers=None, use_polygon=True )
     """
     if timers is None:
         timers = defaultdict(Timer)
-
     timers['im_detect_bbox'].tic()
     if cfg.TEST.BBOX_AUG.ENABLED:
         scores, boxes, im_scale, blob_conv = im_detect_bbox_aug(
@@ -85,7 +84,6 @@ def im_detect_all(model, im, box_proposals=None, timers=None, use_polygon=True )
     else:
         scores, boxes, im_scale, blob_conv = im_detect_bbox(
             model, im, cfg.TEST.SCALE, cfg.TEST.MAX_SIZE, box_proposals)
-
     timers['im_detect_bbox'].toc()
 
 
@@ -204,7 +202,9 @@ def im_detect_bbox(model, im, target_scale, target_max_size, boxes=None):
     # print()
     if cfg.SYNCHRONIZE:
         torch.cuda.synchronize
-        print("Time from imdetect_bbox to right before model forward call: %.3f"% (time.time()-t_sta))
+        # print("Time prepping, before model forward:      %.3f"% (time.time()-t_sta))
+        print("Time prepping, before model forward:")
+        print("                                          %.3f" % (time.time() - t_sta) )
     return_dict = model(**inputs)
 
     if isinstance(return_dict['rois'],np.ndarray):

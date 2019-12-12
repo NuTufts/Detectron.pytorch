@@ -93,15 +93,14 @@ class single_scale_rpn_outputs(nn.Module):
         im_info: (CPU Variable)
         roidb: (list of ndarray)
         """
-        t_st = time.time()
-        if cfg.SYNCHRONIZE:
-            torch.cuda.synchronize
-            print("Before RPN")
-        rpn_conv = F.relu(self.RPN_conv(x), inplace=True)
 
+        rpn_conv = F.relu(self.RPN_conv(x), inplace=True)
+        
         rpn_cls_logits = self.RPN_cls_score(rpn_conv)
 
         rpn_bbox_pred = self.RPN_bbox_pred(rpn_conv)
+
+
 
         return_dict = {
             'rpn_cls_logits': rpn_cls_logits, 'rpn_bbox_pred': rpn_bbox_pred}
@@ -130,16 +129,10 @@ class single_scale_rpn_outputs(nn.Module):
             if self.training or self.validation:
                 # Add op that generates training labels for in-network RPN proposals
                 blobs_out = self.RPN_GenerateProposalLabels(rpn_rois, roidb, im_info)
-
                 return_dict.update(blobs_out)
             else:
                 # Alias rois to rpn_rois for inference
                 return_dict['rois'] = return_dict['rpn_rois']
-
-        if cfg.SYNCHRONIZE:
-            torch.cuda.synchronize
-            print("Time to run RPN_Heads forward: %0.3f" % (time.time() - t_st))
-            print("After RPN Forward")
         return return_dict
 
 

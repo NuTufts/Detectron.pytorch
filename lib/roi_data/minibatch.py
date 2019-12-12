@@ -91,52 +91,19 @@ def _get_image_blob(roidb):
         image2d_adc_crop_chain.GetEntry(roidb[i]['id'])
         entry_image2dadc_crop_data = image2d_adc_crop_chain.image2d_adc_branch
         image2dadc_crop_array = entry_image2dadc_crop_data.as_vector()
-        # im_2d = larcv.as_ndarray(image2dadc_crop_array[roidb[i]['plane']])
         im_2d =  np.transpose(larcv.as_ndarray(image2dadc_crop_array[cfg.PLANE]))
 
         im = np.zeros ((roidb[i]['height'],roidb[i]['width'],3))
 
-        for dim1 in range(len(im_2d)):
-            for dim2 in range(len(im_2d[0])):
-                im[dim1][dim2][:] = im_2d[dim1][dim2]
-        # np.set_printoptions(threshold=np.inf, precision=0, suppress=True)
-        # print('start')
-        # print(im[0:100,0:100,0])
-        # print('stop')
-        # if cfg.TRAIN.MAKE_IMAGES:
-        #     boxes = np.array([[50,50,60,60,.99],[1,1,5,5,.99]])
-        #
-        #     im_numpy = im
-        #     # im_numpy = np.swapaxes(im_numpy,2,1)
-        #     # im_numpy = np.swapaxes(im_numpy,2,0)
-        #     im_numpy[im_numpy>0] = 100
-        #     im_numpy[im_numpy<=0] =0
-        #     vis_utils.vis_one_image(
-        #         im_numpy,
-        #         'GoodImage'+str(i),
-        #         'hmmm/',
-        #         boxes,
-        #         None,
-        #         None,
-        #         dataset=datasets.get_particle_dataset(),
-        #         box_alpha=0.3,
-        #         show_class=True,
-        #         thresh=0.7,
-        #         kp_thresh=2,
-        #         plain_img=True
-        #     )
+        # for dim1 in range(len(im_2d)):
+        #     for dim2 in range(len(im_2d[0])):
+        #         im[dim1][dim2][:] = im_2d[dim1][dim2]
+        im = np.moveaxis(np.array([np.copy(im_2d),np.copy(im_2d),np.copy(im_2d)]),0,2)
 
-        # #for jpgs:
-        # im = cv2.imread(roidb[i]['image'])
+
         assert im is not None, \
             'Failed to read image \'{}\''.format(roidb[i]['image'])
-        # If NOT using opencv to read in images, uncomment following lines
-        # if len(im.shape) == 2:
-        #     im = im[:, :, np.newaxis]
-        #     im = np.concatenate((im, im, im), axis=2)
-        # # flip the channel, since the original one using cv2
-        # # rgb -> bgr
-        # im = im[:, :, ::-1]
+
         if roidb[i]['flipped']:
             im = im[:, ::-1, :]
 

@@ -77,21 +77,12 @@ class mask_rcnn_outputs(nn.Module):
     def forward(self, x):
         if cfg.SYNCHRONIZE:
             torch.cuda.synchronize
-            print("Before Mask")
-        t_st = time.time()
 
         x = self.classify(x)
         if cfg.MRCNN.UPSAMPLE_RATIO > 1:
             x = self.upsample(x)
         if not self.training and not self.validation:
             x = torch.sigmoid(x)
-            # x = F.sigmoid(x)
-        if cfg.SYNCHRONIZE:
-           torch.cuda.synchronize
-           print("Time taken to do mask forward: %.3f " % (time.time()- t_st))
-           print("After Mask")
-
-
         return x
 
 
@@ -205,41 +196,43 @@ def mask_rcnn_losses(masks_pred, masks_int32):
         torch.cuda.synchronize
     t_st =time.time()
 
-    # print()
-    # # print('masks_gt is type: ', type(masks_gt))
-    # print('masks_pred shape is: ', masks_pred.shape)
-    # print('max', torch.max(masks_pred).item())
-    # print('min', torch.min(masks_pred).item())
-    # print()
 
-    # print()
-    # # print('masks_gt is type: ', type(masks_gt))
-    # print('masks_pred.view(n_rois, -1) shape is: ', masks_pred.view(n_rois, -1).shape)
-    # print('max', torch.max(masks_pred.view(n_rois, -1)).item())
-    # print('min', torch.min(masks_pred.view(n_rois, -1)).item())
-    # print()
+    resolution = cfg.MRCNN.RESOLUTION
 
-    # print()
-    # print('masks_gt is type: ', type(masks_gt))
-    # print('masks_gt shape is: ', masks_gt.shape)
-    # print('max', torch.max(masks_gt).item())
-    # print('min', torch.min(masks_gt).item())
-    # print()
-    #
-    # print()
-    # print('weight is type: ', type(weight))
-    # print('weight shape is: ', weight.shape)
-    # print('max', torch.max(weight).item())
-    # print('min', torch.min(weight).item())
-    # print()
+    masks_gt_np = masks_gt.cpu().numpy()
+    masks_pred_detach = masks_pred.detach().cpu()
+    masks_pred_np = masks_pred_detach.numpy()
+    masks_gt_np = np.reshape(masks_gt_np, (masks_gt_np.shape[0],cfg.MODEL.NUM_CLASSES,resolution,resolution))
+    this_class = -1
 
-    # print('Pred Shape: ', masks_pred.view(n_rois, -1).shape, "   Truth Shape: ", masks_gt.shape)
-    # print()
-    # print()
-    # print()
-    mask_accuracies =  np.array([],np.float32)
+    acc_list = [[],[],[],[],[],[],[]]
+    acc_acc = np.array([-1.,-1.,-1.,-1.,-1.,-1.,-1.,-1.])
+    for roi in range(masks_gt_np.shape[0]):
+        for clas in range(cfg.MODEL.NUM_CLASSES):
+            sum = masks_gt_np[roi][clas][:][:].sum()
+            if (sum > 0):
+                this_class = clas
+                correct_on_pix = ((masks_gt_np[roi][clas]*masks_pred_np[roi][clas]) > 0.5)
+                this_acc_num = correct_on_pix.sum()
+                this_acc = float(this_acc_num)/float(sum)
+                acc_list[clas].append(this_acc)
 
+    full_acc_num =0
+    full_acc_den =0
+    for clas in range(cfg.MODEL.NUM_CLASSES):
+        full_acc_den = full_acc_den+len(acc_list[clas])
+        if (len(acc_list[clas]) != 0):
+            sum = 0
+            for acc in acc_list[clas]:
+                sum = sum + acc
+                full_acc_num = full_acc_num + acc
+            if (len(acc_list[clas]) != 0):
+                acc_acc[clas] = float(sum)/float(len(acc_list[clas]))
 
+    if (full_acc_den !=0):
+        acc_acc[cfg.MODEL.NUM_CLASSES] = float(full_acc_num)/float(full_acc_den)
+        
+    acc_acc = torch.from_numpy(acc_acc)
 
     loss = F.binary_cross_entropy_with_logits(
         masks_pred.view(n_rois, -1), masks_gt, weight, reduction='sum')
@@ -253,7 +246,7 @@ def mask_rcnn_losses(masks_pred, masks_int32):
     loss /= total_for_avg
     if cfg.SYNCHRONIZE:
     	torch.cuda.synchronize
-    return loss * cfg.MRCNN.WEIGHT_LOSS_MASK , mask_accuracies
+    return loss * cfg.MRCNN.WEIGHT_LOSS_MASK , acc_acc
 
 
 # ---------------------------------------------------------------------------- #

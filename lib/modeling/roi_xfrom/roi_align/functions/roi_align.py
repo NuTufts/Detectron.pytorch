@@ -14,6 +14,9 @@ class RoIAlignFunction(Function):
         self.feature_size = None
 
     def forward(self, features, rois):
+        print()
+        print("lib/modeling/roi_xfrom/roi_align/functions/roi_align.py forward")
+        print()
         self.rois = rois
         self.feature_size = features.size()
 

@@ -16,6 +16,10 @@ class _ROIAlign(Function):
         ctx.spatial_scale = spatial_scale
         ctx.sampling_ratio = sampling_ratio
         ctx.input_shape = input.size()
+        # Fix to get cpu align working
+        if (input.is_cuda == False):
+            input = input.to(torch.device("cpu"),None,False,True)
+
         output = _C.roi_align_forward(input, roi, spatial_scale,
                                       output_size[0], output_size[1],
                                       sampling_ratio)

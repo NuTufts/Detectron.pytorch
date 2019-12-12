@@ -17,6 +17,7 @@ datasets/json_dataset.py
 datasets/json_dataset_evaluator.py
 datasets/larcvdataset.py
 datasets/larcvdataset_old.py
+datasets/larcvdataset_vertex.py
 datasets/roidb.py
 datasets/task_evaluation.py
 datasets/voc_dataset_evaluator.py
@@ -36,6 +37,7 @@ model/utils/__init__.py
 model/utils/net_utils.py
 modeling/FPN.py
 modeling/ResNet.py
+modeling/SparseResNet.py
 modeling/__init__.py
 modeling/collect_and_distribute_fpn_rpn_proposals.py
 modeling/fast_rcnn_heads.py
@@ -55,6 +57,14 @@ modeling/roi_xfrom/roi_align/functions/__init__.py
 modeling/roi_xfrom/roi_align/functions/roi_align.py
 modeling/roi_xfrom/roi_align/modules/__init__.py
 modeling/roi_xfrom/roi_align/modules/roi_align.py
+modeling/roi_xfrom/roi_align/roi_align_orig/__init__.py
+modeling/roi_xfrom/roi_align/roi_align_orig/build.py
+modeling/roi_xfrom/roi_align/roi_align_orig/_ext/__init__.py
+modeling/roi_xfrom/roi_align/roi_align_orig/_ext/roi_align/__init__.py
+modeling/roi_xfrom/roi_align/roi_align_orig/functions/__init__.py
+modeling/roi_xfrom/roi_align/roi_align_orig/functions/roi_align.py
+modeling/roi_xfrom/roi_align/roi_align_orig/modules/__init__.py
+modeling/roi_xfrom/roi_align/roi_align_orig/modules/roi_align.py
 nn/__init__.py
 nn/functional.py
 nn/init.py
@@ -65,6 +75,7 @@ nn/modules/upsample.py
 nn/parallel/__init__.py
 nn/parallel/_functions.py
 nn/parallel/data_parallel.py
+nn/parallel/data_singular.py
 nn/parallel/parallel_apply.py
 nn/parallel/replicate.py
 nn/parallel/scatter_gather.py
@@ -92,6 +103,7 @@ utils/misc.py
 utils/net.py
 utils/resnet_weights_helper.py
 utils/segms.py
+utils/sparseresnet_weights_helper.py
 utils/subprocess.py
 utils/timer.py
 utils/training_stats.py

@@ -265,7 +265,7 @@ def main():
 
 
     # if cfg.CUDA:
-    maskRCNN.to(torch.device(cfg.MODEL.DEVICE))
+    maskRCNN = maskRCNN.to(torch.device(cfg.MODEL.DEVICE))
     # else:
     #     maskRCNN.cpu()
 

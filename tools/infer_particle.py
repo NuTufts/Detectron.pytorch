@@ -64,8 +64,8 @@ def parse_args():
         help='set config keys, will overwrite config in the cfg_file',
         default=[], nargs='+')
 
-    parser.add_argument(
-        '--no_cuda', dest='cuda', help='whether use CUDA', action='store_false')
+    # parser.add_argument( #Deprecated Arg, use the device in the cfg, or use --set
+    #     '--no_cuda', dest='cuda', help='whether use CUDA', action='store_false')
 
     parser.add_argument('--load_ckpt', help='path of checkpoint to load')
     parser.add_argument(
@@ -83,6 +83,9 @@ def parse_args():
         default="infer_outputs")
     parser.add_argument(
         '--merge_pdfs', type=distutils.util.strtobool, default=True)
+
+    parser.add_argument(
+        '--no_vis', dest='vis', help='whether to vis', action='store_false')
 
     parser.add_argument(
         '--num_images',
@@ -128,28 +131,27 @@ def main():
 
     print('load cfg from file: {}'.format(args.cfg_file))
     cfg_from_file(args.cfg_file)
-    if (not torch.cuda.is_available()) and (args.cuda):
-        sys.exit("Need a CUDA device to run the code.")
+    # if (not torch.cuda.is_available()) and (args.cuda):
+    #     sys.exit("Need a CUDA device to run the code.")
     if args.set_cfgs is not None:
         cfg_from_list(args.set_cfgs)
 
     assert bool(args.load_ckpt) ^ bool(args.load_detectron), \
         'Exactly one of --load_ckpt and --load_detectron should be specified.'
-    cfg.MODEL.LOAD_IMAGENET_PRETRAINED_WEIGHTS = False  # Don't need to load imagenet pretrained weights
     assert_and_infer_cfg(make_immutable=False)
 
     maskRCNN = Generalized_RCNN()
-    args.cuda = False
-    if args.cuda:
+    # args.cuda = False
+    # if args.cuda:
         # maskRCNN.cuda()
-        maskRCNN.to(torch.device('cuda:0'))
+    maskRCNN = maskRCNN.to(torch.device(cfg.MODEL.DEVICE))
 
 
     if args.load_ckpt:
         load_name = args.load_ckpt
         print("loading checkpoint %s" % (load_name))
-        if args.cuda:
-            checkpoint = torch.load(load_name, map_location={'cpu':'cuda:0','cuda:0':'cuda:0','cuda:1':'cuda:0','cuda:2':'cuda:0'})
+        if (cfg.MODEL.DEVICE != 'cpu'):
+            checkpoint = torch.load(load_name, map_location={'cpu':cfg.MODEL.DEVICE,'cuda:0':cfg.MODEL.DEVICE,'cuda:1':cfg.MODEL.DEVICE,'cuda:2':cfg.MODEL.DEVICE})
         else:
             checkpoint = torch.load(load_name, map_location={'cpu':'cpu','cuda:0':'cpu','cuda:1':'cpu','cuda:2':'cpu'})
 
@@ -209,28 +211,10 @@ def main():
         # im = np.zeros ((height,width,3))
         im = np.moveaxis(np.array([np.copy(im_2d),np.copy(im_2d),np.copy(im_2d)]),0,2)
         t_data_loaded = time.time()
-        # print('height: ',roidb[i]['height'] , "     dim1: ",len(im_2d))
-        # print('width: ',roidb[i]['width'] , "     dim2: ",len(im_2d[0]))
 
-        # for dim1 in range(len(im_2d)):
-        #     for dim2 in range(len(im_2d[0])):
-        #         value = im_2d[dim1][dim2]
-        #         im[dim1][dim2][:] = value
-        #
-        #         if value > 255:
-        #             value2 =250
-        #         elif value < 0:
-        #             value2 =0
-        #         else:
-        #             value2  = value
-        #         im_visualize[dim1][dim2][:]= value2
-        im[im < 0] = 0
-        im[im > 255] = 250
-        # np.set_printoptions(threshold=np.inf, precision=0, suppress=True)
-        # print('start')
-        # print(im[0:100,0:100,0])
-        # print('stop')
-        # im = cv2.imread(file_list[i])
+        # im[im < 0] = 0
+        # im[im > 255] = 250
+
         assert im is not None
 
         timers = defaultdict(Timer)
@@ -243,6 +227,8 @@ def main():
             torch.cuda.synchronize
         # print(prof)
 
+
+
         print(len(cls_boxes[1]), "Boxes Made with Scores")
         t_after_detect = time.time()
         count_above =0
@@ -253,62 +239,45 @@ def main():
             # else:
             #     print(cls_boxes[1][score_idx][4])
         print(count_above, " Boxes above threshold")
-        if cls_segms is None:
-            continue
-        assert len(cls_boxes) == len(cls_segms)
-        assert len(cls_boxes) == len(round_boxes)
-        im_vis2 = np.zeros ((height,width,3), 'float32')
-        for row in range(height):
-            for col in range(width):
-                if (im[row][col][0] > 10):
-                    im_vis2[row][col][:] = im[row][col][0]
-
-        # for cls in range(len(cls_boxes)):
-        #     for roi in range(len(cls_boxes[cls])):
-        #         if cls_boxes[cls][roi][4] > 0.7:
-        #             #code to adjust im_visualize
-        #             add_x = round_boxes[cls][roi][0]
-        #             add_y = round_boxes[cls][roi][1]
-        #             segm_coo = cls_segms[cls][roi].tocoo()
-        #             for ii,jj,vv in zip(segm_coo.row, segm_coo.col, segm_coo.data):
-        #                 # print("In here")
-        #                 im_vis2[add_y + ii][add_x + jj][:] = 1.0*(roi+1)
         t_before_vis = time.time()
-        vis_utils.vis_one_image(
-            im_vis2[:, :, ::-1],  # BGR -> RGB for visualization
-            "output_im_"+str(i),
-            args.output_dir,
-            cls_boxes,
-            None,
-            cls_keyps,
-            dataset=dataset,
-            box_alpha=0.3,
-            show_class=True,
-            thresh=0.4,
-            kp_thresh=2,
-            no_adc=False,
-            entry=i,
 
-        )
+        if (args.vis == True):
+            if cls_segms is None:
+                continue
+            assert len(cls_boxes) == len(cls_segms)
+            assert len(cls_boxes) == len(round_boxes)
+            im_vis2 = np.zeros ((height,width,3), 'float32')
+            for row in range(height):
+                for col in range(width):
+                    if (im[row][col][0] > 10):
+                        im_vis2[row][col][:] = im[row][col][0]
 
+            for cls in range(len(cls_boxes)):
+                for roi in range(len(cls_boxes[cls])):
+                    if cls_boxes[cls][roi][4] > 0.7:
+                        #code to adjust im_visualize
+                        add_x = round_boxes[cls][roi][0]
+                        add_y = round_boxes[cls][roi][1]
+                        segm_coo = cls_segms[cls][roi].tocoo()
+                        for ii,jj,vv in zip(segm_coo.row, segm_coo.col, segm_coo.data):
+                            # print("In here")
+                            im_vis2[add_y + ii][add_x + jj][:] = 100#1.0*(roi+1)
+            vis_utils.vis_one_image(
+                im_vis2[:, :, ::-1],  # BGR -> RGB for visualization
+                "output_im_"+str(i),
+                args.output_dir,
+                cls_boxes,
+                None,
+                cls_keyps,
+                dataset=dataset,
+                box_alpha=0.3,
+                show_class=True,
+                thresh=0.4,
+                kp_thresh=2,
+                no_adc=False,
+                entry=i,
 
-        # im_name, _ = os.path.splitext(os.path.basename(file_list[0]))
-        # im_name = im_name+str(i)
-        # vis_utils.vis_one_image(
-        #     im_visualize[:, :, ::-1],  # BGR -> RGB for visualization
-        #     im_name,
-        #     args.output_dir,
-        #     cls_boxes,
-        #     cls_segms,
-        #     cls_keyps,
-        #     dataset=dataset,
-        #     box_alpha=0.3,
-        #     show_class=True,
-        #     thresh=0.7,
-        #     kp_thresh=2,
-        #     no_adc=False,
-        #     entry=i
-        # )
+            )
 
         t_end = time.time()
         # differences:

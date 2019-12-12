@@ -80,7 +80,8 @@ class MaxPooling(Module):
         output = SparseConvNetTensor()
         output.metadata = input.metadata
         output.spatial_size = (
-            (input.spatial_size - self.pool_size) / self.pool_stride + 1)
+            input.spatial_size - self.pool_size) / self.pool_stride + 1
+
         assert ((output.spatial_size - 1) * self.pool_stride +
                 self.pool_size == input.spatial_size).all()
         output.features = MaxPoolingFunction.apply(
@@ -92,7 +93,6 @@ class MaxPooling(Module):
             self.pool_size,
             self.pool_stride,
             self.nFeaturesToDrop)
-        print("maxpool: ", output.features.shape)
         return output
 
     def input_spatial_size(self, out_size):

@@ -89,46 +89,11 @@ class LArCVDataset(object):
             self.validation = True
         else:
             self.validation =False
-        # print(category_ids)
-        # print(categories)
-        # print(self.classes)
-        # self.json_category_id_to_contiguous_id = {
-        #     v: i + 1
-        #     for i, v in enumerate(self.COCO.getCatIds())
-        # }
-        # self.contiguous_category_id_to_json_id = {
-        #     v: k
-        #     for k, v in self.json_category_id_to_contiguous_id.items()
-        # }
+
         #Note we don't need these, but for now I include them so that we don't have to find where they get used -j
         self.json_category_id_to_contiguous_id = {1:1 , 2:2, 3:3, 4:4, 5:5, 6:6}
         self.contiguous_category_id_to_json_id = {1:1 , 2:2, 3:3, 4:4, 5:5, 6:6}
-        # I don't think we need this, -j
-        # self._init_keypoints()
-        # print(self.json_category_id_to_contiguous_id)
-        # print(self.contiguous_category_id_to_json_id)
-        # # Set cfg.MODEL.NUM_CLASSES
-        # if cfg.MODEL.NUM_CLASSES != -1:
-        #     assert cfg.MODEL.NUM_CLASSES == 2 if cfg.MODEL.KEYPOINTS_ON else self.num_classes, \
-        #         "number of classes should equal when using multiple datasets"
-        # else:
-        #     cfg.MODEL.NUM_CLASSES = 2 if cfg.MODEL.KEYPOINTS_ON else self.num_classes
 
-        #try making an io
-        # self.cfg="io_config.cfg"
-        # self.filler_cfg = {}
-        # self.filler_cfg["filler_name"] = 'TemporaryName'
-        # self.filler_cfg["verbosity"]   = 2
-        # self.filler_cfg["filler_cfg"]  = self.cfg
-        # self.io = larcv_threadio()
-        # self.io.configure(self.filler_cfg)
-        # print('GOT THIS FAR!')
-        # print('')
-        # self.batchsize=1
-        # if self.batchsize is not None:
-        #     self.start(self.batchsize)
-        # print('GOT THIS FAR!')
-        # print('')
 
     @property
     def cache_path(self):
@@ -376,6 +341,7 @@ class LArCVDataset(object):
                 continue
 
             # Convert form (x1, y1, w, h) to (x1, y1, x2, y2)
+
             x1, y1, x2, y2 = box_utils.xywh_to_xyxy([mask_box_arr[0], mask_box_arr[1], mask_box_arr[2], mask_box_arr[3]])
             x1, y1, x2, y2 = box_utils.clip_xyxy_to_image(
                 x1, y1, x2, y2, height, width
@@ -429,7 +395,7 @@ class LArCVDataset(object):
                 gt_overlaps[ix, :] = -1.0
             else:
                 gt_overlaps[ix, cls] = 1.0
-
+        # print("boxes",boxes)
         entry['boxes'] = np.append(entry['boxes'], boxes, axis=0)
         entry_ious = get_ious(entry['boxes'])
         if len(entry['boxes']) > 1:

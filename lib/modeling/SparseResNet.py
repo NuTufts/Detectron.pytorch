@@ -34,7 +34,7 @@ class SparseResNet(nn.Module):
         super(SparseResNet,self).__init__()
         self.block_counts = (3, 4, 6)
         self.convX = len(self.block_counts) + 1
-        self.res1 = scn.Sequential(OrderedDict([('conv1',scn.Convolution(2, 3, 64, 7, 2, False)), 
+        self.res1 = scn.Sequential(OrderedDict([('conv1',scn.Convolution(2, 3, 64, 7, 2, False)),
             ('bn1',mynn.SparseAffineChannel2d(64)),
             ('relu',scn.ReLU()),
             ('maxpool',scn.MaxPooling(2, 3, 2))
@@ -57,6 +57,11 @@ class SparseResNet(nn.Module):
         self.spatial_scale = 1 / 16
         self.dim_in = 64
         self.dim_out = 1024
+        self.sparsifier = scn.DenseToSparse(2)
+        self.padder = nn.ZeroPad2d((0,11,0,11))
+        self.sparsifier = self.sparsifier.to(torch.device(cfg.MODEL.DEVICE))
+        self.padder = self.padder.to(torch.device(cfg.MODEL.DEVICE))
+
         self._init_modules()
 
 
@@ -103,37 +108,17 @@ class SparseResNet(nn.Module):
             getattr(self, 'res%d' % i).train(mode)
 
     def forward(self, x):
-        t_st = time.time()
-        print("Sparse Res Net start")
-        print("x.features.shape: ", x.features.shape)
-        print("x.spatial_size: ", x.spatial_size)
-
+        x = self.padder(x)
+        x = self.sparsifier(x)
         out = self.res1(x)
-        print()
-        print("res1out .features.shape: ", out.features.shape)
-        print("res1out.spatial_size: ", out.spatial_size)
-
-
         out = self.res2(out)
-        print()
-        print("res2out.features.shape: ", out.features.shape)
-        print("res2out.spatial_size: ", out.spatial_size)
-
         out = self.res3(out)
-        print()
-        print("res3out .features.shape: ", out.features.shape)
-        print("res3out.spatial_size: ", out.spatial_size)
-
         out = self.res4(out)
-        print()
-        print("sparse_out_before_desparsify.features.shape", out.features.shape)
-        print("sparse_out_before_desparsify.spatial_size: ", out.spatial_size)
-
-        print("Time Spent Doing Sparse ResNet: %0.3f" %(time.time() - t_st))
 
         out = self.desparsify(out)
         out = torch.split(out, out.shape[3] - 1, 3)[0]
-        print("output shape", out.shape)
+
+
         return out
 
 # ------------------------------------------------------------------------------
@@ -182,7 +167,6 @@ class sparse_bottleneck(nn.Module):
         self.conv1 = scn.SubmanifoldConvolution(2,
             inplanes, innerplanes, 1, False)
         if (stride !=1):
-            print('here')
             self.conv1 = scn.Convolution(2, inplanes, innerplanes, 1, stride, False)
 
         self.bn1 = mynn.SparseAffineChannel2d(innerplanes)
@@ -201,7 +185,6 @@ class sparse_bottleneck(nn.Module):
         self.relu = scn.ReLU()
 
     def forward(self, x):
-        t_st = time.time()
         residual = x
         out = self.conv1(x)
         out = self.bn1(out)
@@ -213,7 +196,6 @@ class sparse_bottleneck(nn.Module):
 
         out = self.conv3(out)
         out = self.bn3(out)
-        # print("bottleneck transform convs: %0.3f" %(time.time() - t_st))
         if self.downsample is not None:
             residual = self.downsample(x)
 

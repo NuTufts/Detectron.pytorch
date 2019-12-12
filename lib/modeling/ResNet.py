@@ -117,16 +117,18 @@ class ResNet_convX_body(nn.Module):
             getattr(self, 'res%d' % i).train(mode)
 
     def forward(self, x):
-        t_st = time.time()
-        if cfg.SYNCHRONIZE:
-            print("Before ResNet")
-            torch.cuda.synchronize
+        # print("ResNet Forward Start Shape: ", x.shape)
+        # t_st = time.time()
+        # if cfg.SYNCHRONIZE:
+        #     print("Before ResNet")
+        #     torch.cuda.synchronize
         for i in range(self.convX):
             x = getattr(self, 'res%d' % (i + 1))(x)
-        if cfg.SYNCHRONIZE:
-            torch.cuda.synchronize
-            print("Time Spent Doing ResNet Core: %0.3f" %(time.time() - t_st))
-            print("After ResNet")
+            # print('res%d' % (i+1),  x.shape)
+        # if cfg.SYNCHRONIZE:
+        #     torch.cuda.synchronize
+        #     print("Time Spent Doing ResNet Core: %0.3f" %(time.time() - t_st))
+        #     print("After ResNet")
 
         return x
 
@@ -153,9 +155,11 @@ class ResNet_roi_conv5_head(nn.Module):
     def detectron_weight_mapping(self):
         mapping_to_detectron, orphan_in_detectron = \
           residual_stage_detectron_mapping(self.res5, 'res5', 3, 5)
+
         return mapping_to_detectron, orphan_in_detectron
 
     def forward(self, x, rpn_ret):
+
         x = self.roi_xform(
             x, rpn_ret,
             blob_rois='rois',

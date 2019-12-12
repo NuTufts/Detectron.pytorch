@@ -102,7 +102,7 @@ class Generalized_RCNN(nn.Module):
 
         # Backbone for feature extraction
         self.Conv_Body = get_func(cfg.MODEL.CONV_BODY)()
-        self.Conv_Body.to(torch.device('cpu'))
+        self.Conv_Body = self.Conv_Body.to(torch.device(cfg.MODEL.DEVICE))
 
         # Region Proposal Network
         if cfg.RPN.RPN_ON:
@@ -145,15 +145,24 @@ class Generalized_RCNN(nn.Module):
             if getattr(self.Keypoint_Head, 'SHARE_RES5', False):
                 self.Keypoint_Head.share_res5_module(self.Box_Head.res5)
             self.Keypoint_Outs = keypoint_rcnn_heads.keypoint_outputs(self.Keypoint_Head.dim_out)
-
         self._init_modules()
 
     def _init_modules(self):
         if cfg.MODEL.LOAD_IMAGENET_PRETRAINED_WEIGHTS:
-            sparseresnet_utils.load_pretrained_imagenet_weights(self)
+            if (cfg.MODEL.CONV_BODY == "SparseResNet.ResNet50_conv4_body"):
+                print("Loading Pretrained onto Sparse ResNet")
+                sparseresnet_utils.load_pretrained_imagenet_weights(self)
+            elif (cfg.MODEL.CONV_BODY == "ResNet.ResNet50_conv4_body"):
+                print("Loading Pretrained onto Dense ResNet")
+                resnet_utils.load_pretrained_imagenet_weights(self)
+            else:
+                print("Breaking, using faulty version of ResNet")
+                assert (1==2)
             # Check if shared weights are equaled
             if cfg.MODEL.MASK_ON and getattr(self.Mask_Head, 'SHARE_RES5', False):
+
                 assert compare_state_dict(self.Mask_Head.res5.state_dict(), self.Box_Head.res5.state_dict())
+
             if cfg.MODEL.KEYPOINTS_ON and getattr(self.Keypoint_Head, 'SHARE_RES5', False):
                 assert compare_state_dict(self.Keypoint_Head.res5.state_dict(), self.Box_Head.res5.state_dict())
 
@@ -189,27 +198,30 @@ class Generalized_RCNN(nn.Module):
         else:
             device_id = 'cpu'
         return_dict = {}  # A dict to collect return variables
-        if im_data.is_cuda:
-            print(torch.get_device(im_data)," torch.get_device(im_data)")
-
-        # self.Conv_Body = get_func(cfg.MODEL.CONV_BODY)()
-        # self.Conv_Body.to(torch.device(device_id))
-        # This is resnet here
-
-        sparsifier = scn.DenseToSparse(2)
-        padder = nn.ZeroPad2d((0,11,0,11))
-
-        sparsifier.to(torch.device('cpu'))
-        padder.to(torch.device('cpu'))
-
-        im_data = padder(im_data)
-        im_data = sparsifier(im_data)
-
-        # self.Conv_Body.to(torch.device('cpu'))
+        #ResNet Forward
+        if cfg.SYNCHRONIZE:
+            print("Start ResNet Conv_Body ")
+            torch.cuda.synchronize
+        t_st = time.time()
         blob_conv = self.Conv_Body(im_data)
-        import pdb; pdb.set_trace()
+        if cfg.SYNCHRONIZE:
+            torch.cuda.synchronize
+        # print("Time Spent Doing Sparse ResNet:           %0.3f" %(time.time() - t_st))
+            print("Time Spent Doing ResNet Conv_Body:")
+            print("                                          %.3f" % (time.time() - t_st) )
+            print("End ResNet Conv_Body ")
+        #RPN Forward
+        t_st = time.time()
+        if cfg.SYNCHRONIZE:
+            torch.cuda.synchronize
+            print("Before RPN")
         rpn_ret = self.RPN(blob_conv, im_info, roidb)
-        # self.timers['rpn_pass'] += time.time() - relative_time
+        if cfg.SYNCHRONIZE:
+            torch.cuda.synchronize
+            print("Time to run RPN_Heads forward:")
+            print("                                          %.3f" % (time.time() - t_st) )
+            print("After RPN Forward")
+
         relative_time = time.time()
 
 
@@ -232,12 +244,24 @@ class Generalized_RCNN(nn.Module):
             print("before boxhead")
             if cfg.MODEL.SHARE_RES5 and (self.training or self.validation):
                 box_feat, res5_feat = self.Box_Head(blob_conv, rpn_ret)
-            else:
+            else: # we do this one
                 box_feat = self.Box_Head(blob_conv, rpn_ret)
+
             if cfg.SYNCHRONIZE:
                 torch.cuda.synchronize
-                print("Time taken to boxhead: %.3f " % (time.time() - t_st_bhead))
+                print("Time taken to boxhead:")
+                print("                                          %.3f" % (time.time() - t_st) )
+
+            t_st = time.time()
+
+            if cfg.SYNCHRONIZE:
+                torch.cuda.synchronize
+                print('Before BoxClass')
             cls_score, bbox_pred = self.Box_Outs(box_feat)
+            if cfg.SYNCHRONIZE:
+                torch.cuda.synchronize
+                print("Time taken to Predict Box Class:")
+                print("                                          %.3f" % (time.time() - t_st) )
 
         else:
             # TODO: complete the returns for RPN only situation
@@ -272,9 +296,9 @@ class Generalized_RCNN(nn.Module):
             return_dict['losses']['loss_bbox'] = loss_bbox
             return_dict['metrics']['accuracy_cls'] = accuracy_cls
             if accuracy_neut != -1:
-                return_dict['metrics']['accuracy_neut'] = accuracy_neut
+                return_dict['metrics']['accuracy_cls_neut'] = accuracy_neut
             if accuracy_cosm != -1:
-                return_dict['metrics']['accuracy_cosm'] = accuracy_cosm
+                return_dict['metrics']['accuracy_cls_cosm'] = accuracy_cosm
             # self.timers['bbox_cls_loss'] += time.time() - relative_time
             relative_time =time.time()
 
@@ -294,8 +318,12 @@ class Generalized_RCNN(nn.Module):
 
                 # print(rpn_ret['mask_rois'])
                 loss_mask, mask_accuracies = mask_rcnn_heads.mask_rcnn_losses(mask_pred, rpn_ret['masks_int32'])
+                return_dict['metrics']['accuracy_masks'] = mask_accuracies[7]
+                if mask_accuracies[5] != -1:
+                    return_dict['metrics']['accuracy_mask_neut'] = mask_accuracies[5]
+                if mask_accuracies[1] != -1:
+                    return_dict['metrics']['accuracy_mask_cosm'] = mask_accuracies[1]
                 if cfg.TRAIN.MAKE_IMAGES and (self.training or self.validation):
-
                     boxes_2 = np.empty((len(rpn_ret['mask_rois']),4))
                     boxes = [[],[],[],[],[],[],[]]
                     boxes_3 =[np.empty((0,5)),
@@ -335,17 +363,6 @@ class Generalized_RCNN(nn.Module):
                     M = cfg.MRCNN.RESOLUTION
                     mask_pred = mask_pred.reshape([-1, cfg.MODEL.NUM_CLASSES, M, M])
 
-                    # print('Type boxes: ', type(boxes_2))
-                    # print('Shape boxes: ', boxes_2.shape)
-                    # print('boxes: ', boxes_2)
-                    # print('Type cls_boxes: ', type(boxes_3))
-                    # print('len cls_boxes: ', len(boxes_3))
-                    # print('len cls_boxes[1]: ', len(boxes_3[1]))
-                    # print('type cls_boxes[1]: ', type(boxes_3[1]))
-
-                    # for index in range(len(boxes_3)):
-                    #     for index2 in range(len(boxes_3[index])):
-                    #         print(boxes_3[index][index2])
                     cls_segms = segm_results(boxes_3, mask_pred, boxes_2, 512, 832)
 
                     print('How many boxes: ', len(boxes))
@@ -409,7 +426,7 @@ class Generalized_RCNN(nn.Module):
             # self.timers['squeezey'] += time.time() - relative_time
             relative_time=time.time()
         else:
-            # Testing
+            # Testing, not training or validation
             return_dict['rois'] = rpn_ret['rois']
             return_dict['cls_score'] = cls_score
             return_dict['bbox_pred'] = bbox_pred
@@ -474,7 +491,7 @@ class Generalized_RCNN(nn.Module):
             if xform_shuffled.is_cuda:
                 device_id = xform_shuffled.get_device()
             else:
-                device_is = 'cpu'
+                device_id = 'cpu'
             restore_bl = rpn_ret[blob_rois + '_idx_restore_int32']
             restore_bl = Variable(
                 torch.from_numpy(restore_bl.astype('int64', copy=False))).to(torch.device(device_id))
@@ -513,11 +530,30 @@ class Generalized_RCNN(nn.Module):
     def mask_net(self, blob_conv, rpn_blob):
         """For inference"""
         t_st = time.time()
+        if cfg.SYNCHRONIZE:
+            torch.cuda.synchronize
+            print("Before Mask Head")
         mask_feat = self.Mask_Head(blob_conv, rpn_blob)
         if cfg.SYNCHRONIZE:
             torch.cuda.synchronize
-            print("Time til end of mask head (before outs): %.3f" % (time.time() - t_st) )
+            print("Time til end of mask head (before outs):")
+            print("                                          %.3f" % (time.time() - t_st) )
+            print("After Mask Head")
+
+        t_st = time.time()
+        if cfg.SYNCHRONIZE:
+            torch.cuda.synchronize
+            print("Before Mask Prediction")
         mask_pred = self.Mask_Outs(mask_feat)
+        if cfg.SYNCHRONIZE:
+            torch.cuda.synchronize
+            print("Time Taken to make Mask Predictions:")
+            print("                                          %.3f" % (time.time() - t_st) )
+            print("After Mask Prediction")
+            print()
+            print()
+
+
         return mask_pred
 
     @check_inference

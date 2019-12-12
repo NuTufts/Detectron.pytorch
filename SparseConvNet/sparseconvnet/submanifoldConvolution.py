@@ -41,7 +41,6 @@ class SubmanifoldConvolution(Module):
             input.spatial_size,
             self.dimension,
             self.filter_size)
-        print(output.features.shape)
         return output
 
     def __repr__(self):
