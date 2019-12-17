@@ -82,9 +82,12 @@ def fast_rcnn_losses(cls_score, bbox_pred, label_int32, bbox_targets,
 
     num_cosm = (( rois_label == 1 ).float() * cls_preds.eq(rois_label).float() ).float().sum(dim=0).float()
     num_neut = (( rois_label == 5 ).float() * cls_preds.eq(rois_label).float() ).float().sum(dim=0).float()
+    num_back = (( rois_label == 0 ).float() * cls_preds.eq(rois_label).float() ).float().sum(dim=0).float()
 
     den_cosm = (rois_label == 1 ).float().sum(dim=0).float()
     den_neut = (rois_label == 5 ).float().sum(dim=0).float()
+    den_back = (rois_label == 0 ).float().sum(dim=0).float()
+
     # print("My Accuracy: ", numerator/denominator.item())
     # print("Numerator: ", numerator.item())
     # print("Denominator: ", denominator.item())
@@ -102,15 +105,27 @@ def fast_rcnn_losses(cls_score, bbox_pred, label_int32, bbox_targets,
     # accuracy_cls = cls_preds.eq(rois_label).float().mean(dim=0)
     neut_weight = 0
     cosmic_weight = 0
+    print("num_pred_neut: ", cls_preds.eq(5).float().sum(dim=0).float().item())
+    print("num_pred_cosm: ", cls_preds.eq(1).float().sum(dim=0).float().item())
+    print("num_pred_back: ", cls_preds.eq(0).float().sum(dim=0).float().item())
     print()
-    print("num_neut: ", num_neut.item())
-    print("num_cosm: ", num_cosm.item())
-    if (num_neut ==0) or (num_cosm ==0):
-        neut_weight=1.
-        cosmic_weight=1.
+    print("num_correct_neut: ", num_neut.item())
+    print("num_correct_cosm: ", num_cosm.item())
+    print("num_correct_back: ", num_back.item())
+    print()
+    print("den_neut: ", den_neut.item())
+    print("den_cosm: ", den_cosm.item())
+    print("den_back: ", den_back.item())
+    mult = 2. #upweight relative to background cases
+    if (den_neut ==0) or (den_cosm ==0):
+        neut_weight=1.*mult
+        cosmic_weight=1.*mult
     else:
-        neut_weight= float(num_cosm)/float(num_neut+num_cosm)
-        cosmic_weight= float(num_neut)/float(num_cosm+num_neut)
+        neut_weight= float(den_cosm)/float(den_neut+den_cosm)*mult
+        cosmic_weight= float(den_neut)/float(den_cosm+den_neut)*mult
+
+    neut_weight = 3498/194*mult #this is the num of cosmics/num neutrinos
+    cosmic_weight = 1*mult
 
     weight = np.zeros(cls_score.shape[1],np.float32)
     weight[0] = 1

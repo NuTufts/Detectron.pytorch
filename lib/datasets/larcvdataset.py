@@ -138,6 +138,8 @@ class LArCVDataset(object):
         ###
         roidb = []
         _files = ['/home/jmills/workdir/mask-rcnn.pytorch/data/particle_physics_train/crop_train.root']
+        # _files = ['/home/jmills/workdir/files/mcc9_nue_full_image_truth/fullimg_mask_truth.root']
+
         if self.validation == True:
             _files = ['/media/disk1/jmills/crop_mask_valid/crop_valid.root']
         # _f = ROOT.TFile(_files[0])
@@ -164,8 +166,8 @@ class LArCVDataset(object):
 
         for entry in range(self.SPECIFIC_IMAGE_START,self.SPECIFIC_IMAGE_START+self.NUM_IMAGES):
             dict = {
-                "height":                   512,
-                "width":                    832,
+                "height":                   cfg.TRAIN.SCALES[0],
+                "width":                    cfg.TRAIN.MAX_SIZE,
                 # "coco_url":                 'https://bellenot.web.cern.ch/bellenot/images/logo_full-plus-text-hor2.png',
                 # "flickr_url":               'https://bellenot.web.cern.ch/bellenot/images/logo_full-plus-text-hor2.png',
                 "id":                       entry,
@@ -185,7 +187,7 @@ class LArCVDataset(object):
 
 
         # Include ground-truth object annotations
-        cache_filepath = os.path.join(self.cache_path, self.name+'_gt_roidb_plane_'+str(self.plane)+'.pkl')
+        cache_filepath = os.path.join(self.cache_path, self.name+'_gt_roidb_plane_'+str(self.plane)+ '_nimg_' + str(self.NUM_IMAGES) +'.pkl')
         if os.path.exists(cache_filepath) and not cfg.DEBUG:
             self.debug_timer.tic()
             roidb = [{"dataset":                   self,} for ind in range(self.NUM_IMAGES)]

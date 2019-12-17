@@ -178,7 +178,7 @@ def main():
 
     #collect files
     # wire for full image, adc for crop image
-    image2d_adc_crop_chain = ROOT.TChain("image2d_wire_tree")
+    image2d_adc_crop_chain = ROOT.TChain("image2d_adc_tree")
     for file in file_list: image2d_adc_crop_chain.AddFile(file)
 
 
@@ -204,7 +204,7 @@ def main():
         t_start = time.time()
         print('img', i)
         image2d_adc_crop_chain.GetEntry(i)
-        entry_image2dadc_crop_data = image2d_adc_crop_chain.image2d_wire_branch # wire for full image, adc for crop image
+        entry_image2dadc_crop_data = image2d_adc_crop_chain.image2d_adc_branch # wire for full image, adc for crop image
         image2dadc_crop_array = entry_image2dadc_crop_data.as_vector()
         im_2d = np.transpose(larcv.as_ndarray(image2dadc_crop_array[cfg.PLANE]))
         height, width = im_2d.shape
@@ -246,9 +246,10 @@ def main():
                 continue
             assert len(cls_boxes) == len(cls_segms)
             assert len(cls_boxes) == len(round_boxes)
-            im_vis2 = np.zeros ((height,width,3), 'float32')
-            im_vis2 = np.moveaxis(np.array([np.copy(im),np.copy(im),np.copy(im)]),0,2)
+            # im_vis2 = np.moveaxis(np.array([np.copy(im),np.copy(im),np.copy(im)]),0,2)
 
+            im_vis2 = im
+            im_vis2[im_vis2 < 10] = 0
             # for row in range(height):
             #     for col in range(width):
             #         if (im[row][col][0] > 10):

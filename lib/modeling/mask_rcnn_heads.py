@@ -117,8 +117,7 @@ def mask_rcnn_losses(masks_pred, masks_int32):
                 if weight[roi][resolution*resolution*clas+5].item() ==1:
                     ind = clas
             # print('Array Copied')
-            print( np.amax(numpy_arr))
-            print(numpy_arr.shape)
+            print( "Class",ind)
             if np.amax(numpy_arr) != 1:
                 # print('continuing')
                 continue
@@ -231,7 +230,7 @@ def mask_rcnn_losses(masks_pred, masks_int32):
 
     if (full_acc_den !=0):
         acc_acc[cfg.MODEL.NUM_CLASSES] = float(full_acc_num)/float(full_acc_den)
-        
+
     acc_acc = torch.from_numpy(acc_acc)
 
     loss = F.binary_cross_entropy_with_logits(

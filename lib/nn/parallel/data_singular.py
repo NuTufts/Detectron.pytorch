@@ -214,8 +214,8 @@ class DataSingular(Module):
         #                     print("            ", torch.get_device(v2))
         if ("rois" in outstuff.keys()):
             outstuff["rois"] = torch.from_numpy(outstuff["rois"])
-        else:
-            print("Data_Singular.py, no ROIs?")
+        # else:
+            # print("Data_Singular.py, no ROIs?")
         return outstuff
 
 
