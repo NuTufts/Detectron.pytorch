@@ -25,7 +25,7 @@ from torch.autograd import Variable
 import _init_paths
 import nn as mynn
 from core.config import cfg, cfg_from_file, cfg_from_list, assert_and_infer_cfg
-from core.test import im_detect_all, purity_calculation, efficiency_calculation, best_iou
+from core.test import im_detect_all, purity_calculation, efficiency_calculation_union, best_iou
 from modeling.model_builder import Generalized_RCNN
 import datasets.dummy_datasets as datasets
 import utils.misc as misc_utils
@@ -149,6 +149,20 @@ def main():
             tree_dict[key].GetEntry(entry)
             Eff_Avg  = tree_dict[key].EffAvg
             Pur_Avg = tree_dict[key].Pur_Avg
+            eff_v = tree_dict[key].Eff
+            pur_v = tree_dict[key].Purities
+            gt_area_v = tree_dict[key].GT_Area
+
+            # total_e = 0.0
+            # num=0.0
+            # for i in range(len(eff_v)):
+            #     e = eff_v[i]
+            #     gt_area = gt_area_v[i]
+            #     if gt_area > 200:
+            #         total_e = total_e+e
+            #         num=num+1
+            # Eff_Avg[0] = total_e/num
+
             if len(Eff_Avg) !=1:
                 # print(len(Eff_Avg))
                 continue

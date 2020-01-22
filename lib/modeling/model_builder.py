@@ -186,7 +186,7 @@ class Generalized_RCNN(nn.Module):
     def _forward(self, data, im_info, roidb=None, **rpn_kwargs):
         # self.timers['begin_forward_pass']=time.time()
         relative_time =time.time()
-
+        # print("Im_Info", type(im_info),im_info.shape,im_info)
         torch.cuda.synchronize
         t_st = time.time()
         im_data = data

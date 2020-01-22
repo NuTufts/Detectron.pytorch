@@ -167,7 +167,7 @@ def main():
     maskRCNN = mynn.DataSingular(maskRCNN, cpu_keywords=['im_info', 'roidb'],
                                  minibatch=True , device_id=[cfg.MODEL.DEVICE])
 
-    maskRCNN.eval()
+    maskRCNN = maskRCNN.eval()
 
     if args.image_dir:
         file_list = os.listdir(args.image_dir)
@@ -210,6 +210,8 @@ def main():
         height, width = im_2d.shape
         # im = np.zeros ((height,width,3))
         im = np.moveaxis(np.array([np.copy(im_2d),np.copy(im_2d),np.copy(im_2d)]),0,2)
+        # print("im.shape",im.shape)
+        # assert 1==2
         t_data_loaded = time.time()
 
         # im[im < 0] = 0

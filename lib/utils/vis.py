@@ -194,7 +194,7 @@ def vis_one_image(
             ax.text(
                 10,500,
                 "Entry #"+str(entry),
-                fontsize=2,
+                fontsize=12,
                 family='serif',
                 bbox=dict(
                     facecolor='g', alpha=0.4, pad=0, edgecolor='none'),
@@ -219,7 +219,7 @@ def vis_one_image(
                 ax.text(
                     bbox[0], bbox[1] + 20,
                     get_class_string(classes[i], score, dataset),
-                    fontsize=2,
+                    fontsize=12,
                     family='serif',
                     bbox=dict(
                         facecolor='g', alpha=0.4, pad=0, edgecolor='none'),
@@ -240,7 +240,7 @@ def vis_one_image(
                 ax.text(
                     bbox[0], bbox[1] +dist,
                     str(i),
-                    fontsize=9,
+                    fontsize=12,
                     family='serif',
                     bbox=dict(
                         facecolor='g', alpha=0.4, pad=0, edgecolor='none'),

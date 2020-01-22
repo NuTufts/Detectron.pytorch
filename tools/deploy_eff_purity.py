@@ -191,8 +191,8 @@ def main():
         ckpt_tracker+=1
         maskRCNN = Generalized_RCNN()
 
-        if args.cuda:
-            maskRCNN.cuda()
+        maskRCNN = maskRCNN.to(torch.device(cfg.MODEL.DEVICE))
+
         load_name=ckpt
         print("loading checkpoint %s" % (load_name))
         checkpoint = torch.load(load_name, map_location=lambda storage, loc: storage)
@@ -201,8 +201,8 @@ def main():
         print(load_name)
 
 
-        maskRCNN = mynn.DataParallel(maskRCNN, cpu_keywords=['im_info', 'roidb'],
-                                     minibatch=True, device_ids=[0])  # only support single GPU
+        maskRCNN = mynn.DataSingular(maskRCNN, cpu_keywords=['im_info', 'roidb'],
+                             minibatch=True , device_id=[cfg.MODEL.DEVICE]) #
 
         maskRCNN.eval()
         #Get Our ROOT Storage Set Up
@@ -285,21 +285,21 @@ def main():
             image2d_adc_crop_chain.GetEntry(i)
             entry_image2dadc_crop_data = image2d_adc_crop_chain.image2d_adc_branch
             image2dadc_crop_array = entry_image2dadc_crop_data.as_vector()
-            im_2d = larcv.as_ndarray(image2dadc_crop_array[plane])
+            im_2d = np.transpose(larcv.as_ndarray(image2dadc_crop_array[plane]))
             height, width = im_2d.shape
             im = np.zeros ((height,width,3))
-            im_visualize = np.zeros ((height,width,3), 'float32')
+            # im_visualize = np.zeros ((height,width,3), 'float32')
 
 
             clustermask_cluster_crop_chain.GetEntry(i)
             entry_mask_crop_data = clustermask_cluster_crop_chain.clustermask_masks_branch
             mask_crop_array =  entry_mask_crop_data.as_vector()
-            gt_masks = np.zeros((512,832,len(mask_crop_array[plane])))
+            gt_masks = np.zeros((cfg.TEST.SCALE,cfg.TEST.MAX_SIZE,len(mask_crop_array[plane])))
             gt_boxes = np.empty((len(mask_crop_array[plane]),5))
 
             for index, mask in enumerate(mask_crop_array[plane]):
                 bbox = larcv.as_ndarray_bbox(mask)
-                mask_in_bbox = larcv.as_ndarray_mask(mask)
+                mask_in_bbox = np.transpose(larcv.as_ndarray_mask(mask))
                 bbox[2] = bbox[2]+bbox[0]
                 bbox[3] = bbox[3]+bbox[1]
                 gt_boxes[index,:] = bbox
@@ -309,16 +309,16 @@ def main():
                 # print("832 axis:", bbox[2]-bbox[0]+1)
                 # print("512 axis:", bbox[3]-bbox[1]+1)
                 # print()
-                if larcv.as_ndarray_mask(mask).shape[0] == gt_masks[int(bbox[1]):int(bbox[3]+1),int(bbox[0]):int(bbox[2]+1),index].shape[0]+1:
-                    if larcv.as_ndarray_mask(mask).shape[1] == gt_masks[int(bbox[1]):int(bbox[3]+1),int(bbox[0]):int(bbox[2]+1),index].shape[1]+1:
-                        gt_masks[int(bbox[1]-1):int(bbox[3]+1),int(bbox[0]-1):int(bbox[2]+1),index]= larcv.as_ndarray_mask(mask)
+                if mask_in_bbox.shape[0] == gt_masks[int(bbox[1]):int(bbox[3]+1),int(bbox[0]):int(bbox[2]+1),index].shape[0]+1:
+                    if mask_in_bbox.shape[1] == gt_masks[int(bbox[1]):int(bbox[3]+1),int(bbox[0]):int(bbox[2]+1),index].shape[1]+1:
+                        gt_masks[int(bbox[1]-1):int(bbox[3]+1),int(bbox[0]-1):int(bbox[2]+1),index]= mask_in_bbox
                     else:
-                        gt_masks[int(bbox[1]-1):int(bbox[3]+1),int(bbox[0]):int(bbox[2]+1),index]= larcv.as_ndarray_mask(mask)
+                        gt_masks[int(bbox[1]-1):int(bbox[3]+1),int(bbox[0]):int(bbox[2]+1),index]= mask_in_bbox
                 else:
-                    if larcv.as_ndarray_mask(mask).shape[1] == gt_masks[int(bbox[1]):int(bbox[3]+1),int(bbox[0]):int(bbox[2]+1),index].shape[1]+1:
-                        gt_masks[int(bbox[1]):int(bbox[3]+1),int(bbox[0]-1):int(bbox[2]+1),index]= larcv.as_ndarray_mask(mask)
+                    if mask_in_bbox.shape[1] == gt_masks[int(bbox[1]):int(bbox[3]+1),int(bbox[0]):int(bbox[2]+1),index].shape[1]+1:
+                        gt_masks[int(bbox[1]):int(bbox[3]+1),int(bbox[0]-1):int(bbox[2]+1),index]= mask_in_bbox
                     else:
-                        gt_masks[int(bbox[1]):int(bbox[3]+1),int(bbox[0]):int(bbox[2]+1),index]= larcv.as_ndarray_mask(mask)
+                        gt_masks[int(bbox[1]):int(bbox[3]+1),int(bbox[0]):int(bbox[2]+1),index]= mask_in_bbox
 
 
 
@@ -368,7 +368,7 @@ def main():
             #let's delete predictions below some threshold 0.7 what's been used in
             #imaging deploy
 
-            threshold = 0.7
+            threshold = 0.4 #0.7
             pred_ind = 0
             if pred_boxes is None:
                 continue
@@ -423,7 +423,7 @@ def main():
             sum_efficiency=0.0
             num_uncounted = 0
             for gt_index in range(gt_masks.shape[2]):
-                efficiency = efficiency_calculation_single(gt_boxes[gt_index,:], gt_masks[:,:,gt_index], pred_boxes, pred_masks, adc_image_bin)
+                efficiency = efficiency_calculation_union(gt_boxes[gt_index,:], gt_masks[:,:,gt_index], pred_boxes, pred_masks, adc_image_bin)
                 if efficiency == -1:
                     num_uncounted +=1
                     continue
@@ -444,7 +444,7 @@ def main():
             num_uncounted = 0
             sum_efficiency_charge = 0.0
             for gt_index in range(gt_masks.shape[2]):
-                efficiency_charge = efficiency_calculation_single(gt_boxes[gt_index,:], gt_masks[:,:,gt_index], pred_boxes, pred_masks, adc_no_bin)
+                efficiency_charge = efficiency_calculation_union(gt_boxes[gt_index,:], gt_masks[:,:,gt_index], pred_boxes, pred_masks, adc_no_bin)
                 if efficiency_charge == -1:
                     num_uncounted +=1
                     continue

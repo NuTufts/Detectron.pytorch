@@ -1078,7 +1078,7 @@ def _get_blobs(im, rois, target_scale, target_max_size):
         blobs['rois'] = _get_rois_blob(rois, im_scale)
     return blobs, im_scale
 
-def efficiency_calculation(gt_box, gt_mask, pred_boxes, pred_masks, adc_image):
+def efficiency_calculation_union(gt_box, gt_mask, pred_boxes, pred_masks, adc_image):
     ### Take in one ground truth box and its mask, then loop through all
     ### the predicted boxes adding up their coverages to find what % of GT is
     ### covered by their union
