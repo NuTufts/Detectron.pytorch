@@ -97,6 +97,10 @@ def parse_args():
         help='Number of image to start on from root file',
         default=0, type=int)
 
+    parser.add_argument(
+        '--neutrino_hunter',
+        help='Set to 1 if you want to just save neutrino containing images',
+        default=0, type=int)
     args = parser.parse_args()
 
 
@@ -168,7 +172,7 @@ def main():
                                  minibatch=True , device_id=[cfg.MODEL.DEVICE])
 
     maskRCNN = maskRCNN.eval()
-
+    torch.no_grad()
     if args.image_dir:
         file_list = os.listdir(args.image_dir)
         for idx in range(len(file_list)):
@@ -205,6 +209,10 @@ def main():
         print('img', i)
         image2d_adc_crop_chain.GetEntry(i)
         entry_image2dadc_crop_data = image2d_adc_crop_chain.image2d_adc_branch # wire for full image, adc for crop image
+        run = entry_image2dadc_crop_data.run()
+        subrun = entry_image2dadc_crop_data.subrun()
+        event = entry_image2dadc_crop_data.event()
+        # print("RSE" , run, subrun, event)
         image2dadc_crop_array = entry_image2dadc_crop_data.as_vector()
         im_2d = np.transpose(larcv.as_ndarray(image2dadc_crop_array[cfg.PLANE]))
         height, width = im_2d.shape
@@ -224,30 +232,38 @@ def main():
         # with torch.autograd.profiler.profile(use_cuda=False) as prof:
         if cfg.SYNCHRONIZE:
             torch.cuda.synchronize
-        cls_boxes, cls_segms, cls_keyps, round_boxes = im_detect_all(maskRCNN, im, timers=timers, use_polygon=False)
+        cls_boxes, cls_segms, cls_keyps, round_boxes = im_detect_all(maskRCNN, im, timers=timers, use_polygon=True)
         if cfg.SYNCHRONIZE:
             torch.cuda.synchronize
         # print(prof)
 
 
 
-        print(len(cls_boxes[1]), "Boxes Made with Scores")
+        # print(len(cls_boxes[1]), "Boxes Made with Scores")
         t_after_detect = time.time()
         count_above =0
+        count_nu = 0
+        thresh = 0.4
+        for score_idx in range(len(cls_boxes[5])):
+            if cls_boxes[5][score_idx][4] > thresh:
+                # print("Score above threshold!")
+                count_nu = count_nu+1
+
         for score_idx in range(len(cls_boxes[1])):
-            if cls_boxes[1][score_idx][4] > 0.4:
-                print("Score above threshold!")
+            if cls_boxes[1][score_idx][4] > thresh:
+                # print("Score above threshold!")
                 count_above = count_above+1
             # else:
             #     print(cls_boxes[1][score_idx][4])
-        print(count_above, " Boxes above threshold")
+        print(count_above+count_nu, " Boxes above threshold")
         t_before_vis = time.time()
 
-        if (args.vis == True):
+
+        if (args.vis == True) and ( (args.neutrino_hunter == 0) or (count_nu > 0) ):
             if cls_segms is None:
                 continue
-            assert len(cls_boxes) == len(cls_segms)
-            assert len(cls_boxes) == len(round_boxes)
+            # assert len(cls_boxes) == len(cls_segms)
+            # assert len(cls_boxes) == len(round_boxes)
             # im_vis2 = np.moveaxis(np.array([np.copy(im),np.copy(im),np.copy(im)]),0,2)
 
             im_vis2 = im
@@ -258,32 +274,70 @@ def main():
             #             im_vis2[row][col][:] = im[row][col][0]
 
             #Having this next few forloops prints the masks over the raw image.
-            for cls in range(len(cls_boxes)):
-                for roi in range(len(cls_boxes[cls])):
-                    if cls_boxes[cls][roi][4] > 0.7:
-                        #code to adjust im_visualize
-                        add_x = round_boxes[cls][roi][0]
-                        add_y = round_boxes[cls][roi][1]
-                        segm_coo = cls_segms[cls][roi].tocoo()
-                        for ii,jj,vv in zip(segm_coo.row, segm_coo.col, segm_coo.data):
-                            # print("In here")
-                            im_vis2[add_y + ii][add_x + jj][:] = 100#1.0*(roi+1)
-            vis_utils.vis_one_image(
-                im_vis2[:, :, ::-1],  # BGR -> RGB for visualization
-                "output_im_"+str(i),
-                args.output_dir,
-                cls_boxes,
-                None,
-                cls_keyps,
-                dataset=dataset,
-                box_alpha=0.3,
-                show_class=True,
-                thresh=0.4,
-                kp_thresh=2,
-                no_adc=False,
-                entry=i,
-
-            )
+            # for cls in range(len(cls_boxes)):
+            #     for roi in range(len(cls_boxes[cls])):
+            #         if cls_boxes[cls][roi][4] > 0.7:
+            #             #code to adjust im_visualize
+            #             add_x = round_boxes[cls][roi][0]
+            #             add_y = round_boxes[cls][roi][1]
+            #             segm_coo = cls_segms[cls][roi].tocoo()
+            #             for ii,jj,vv in zip(segm_coo.row, segm_coo.col, segm_coo.data):
+            #                 # print("In here")
+            #                 im_vis2[add_y + ii][add_x + jj][:] = 100#1.0*(roi+1)
+            if False:
+                vis_utils.vis_one_image(
+                    im_vis2[:, :, ::-1],  # BGR -> RGB for visualization
+                    "output_im_"+str(i),
+                    args.output_dir,
+                    cls_boxes,
+                    cls_segms,
+                    cls_keyps,
+                    dataset=dataset,
+                    box_alpha=0.3,
+                    show_class=True,
+                    thresh=thresh,
+                    kp_thresh=2,
+                    no_adc=False,
+                    entry=i)
+            else:
+                vis_utils.vis_one_image(
+                    im_vis2[:, :, ::-1],  # BGR -> RGB for visualization
+                    "output_im_"+str(i)+"_labeled",
+                    args.output_dir,
+                    cls_boxes,
+                    cls_segms,
+                    cls_keyps,
+                    dataset=dataset,
+                    box_alpha=0.3,
+                    show_class=True,
+                    thresh=thresh,
+                    kp_thresh=2,
+                    no_adc=False,
+                    entry=entry,
+                    run=-1, #run,
+                    subrun=-1, #subrun,
+                    event=-1 #event
+                )
+                # This makes a raw image
+                vis_utils.vis_one_image(
+                    im_vis2[:, :, ::-1],  # BGR -> RGB for visualization
+                    "output_im_"+str(i)+"_raw",
+                    args.output_dir,
+                    None,
+                    None,
+                    None,
+                    dataset=dataset,
+                    box_alpha=0.3,
+                    show_class=True,
+                    thresh=thresh,
+                    kp_thresh=2,
+                    plain_img=True,
+                    no_adc=False,
+                    entry=entry,
+                    run=-1, #run,
+                    subrun=-1, #subrun,
+                    event=-1 #event
+                )
 
         t_end = time.time()
         # differences:
@@ -303,7 +357,7 @@ def main():
     print("Total Time:  %.3f" % t_total)
 
 
-    if args.merge_pdfs and num_images > 1:
+    if args.merge_pdfs and num_images > 1 and args.vis == True:
         merge_out_path = '{}/results.pdf'.format(args.output_dir)
         if os.path.exists(merge_out_path):
             os.remove(merge_out_path)

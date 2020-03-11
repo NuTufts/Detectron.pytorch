@@ -112,8 +112,10 @@ def main():
         write_file = ROOT.TFile(args.output_dir+"manipulated.root", 'RECREATE')
     w = 1400
     h =  700
-    ROOT.gStyle.SetStatY(0.9);
-    ROOT.gStyle.SetStatX(0.30);
+    ROOT.gStyle.SetStatY(0.9)
+    ROOT.gStyle.SetStatX(0.30)
+    # ROOT.gStyle.SetOptStat(0)
+
     can  = ROOT.TCanvas("can", "histograms   ", w, w)
     can.SetRightMargin(0.15)
     height = can.GetWindowHeight()
@@ -137,9 +139,10 @@ def main():
                 epochs_specialized = ((step_float - 201000.0) * 2.0) / 29839.0
                 title = title + str(epochs)[0:4] + " Epochs, " + str(epochs_specialized)[0:5] + " Specialized Epochs"
 
-            hist       = ROOT.TH2D('Efficiency vs Purity '+suffix_iter, title, 20, 0.0, 1.0, 20, 0.0, 1.0)
+            hist       = ROOT.TH2D('Efficiency vs Purity '+suffix_iter, title, 20, 0.0, 1.01, 20, 0.0, 1.01)
             hist.SetOption('COLZ')
-
+            hist2       = ROOT.TH2D('Efficiency vs GT Area '+suffix_iter, title, 300, 0.0, 300000.0, 20, 0.0, 1.01)
+            hist2.SetOption('COLZ')
 
 
         # key = 'Eff_Purity_0200999'
@@ -152,6 +155,10 @@ def main():
             eff_v = tree_dict[key].Eff
             pur_v = tree_dict[key].Purities
             gt_area_v = tree_dict[key].GT_Area
+            for i in range(len(gt_area_v)):
+                gt_area = gt_area_v[i]
+                eff = eff_v[i]
+                hist2.Fill(gt_area, eff)
 
             # total_e = 0.0
             # num=0.0
@@ -179,6 +186,14 @@ def main():
         hist.SetYTitle("Efficiency")
         hist.Draw('colz')
         can.SaveAs(args.output_dir+'Efficiency_vs_Purity_'+suffix_iter+".png")
+
+        hist2.Write()
+        # hist2.SetMaximum(6000)
+        # hist.SetMinimum(1)
+        hist2.SetXTitle("GT_Area")
+        hist2.SetYTitle("Efficiency")
+        hist2.Draw('colz')
+        can.SaveAs(args.output_dir+"Efficiency_vs_GT_Area_"+suffix_iter+".png")
     time_diff = time.time() - time_start
     print("Time Taken")
     hours = np.floor(time_diff/3600)

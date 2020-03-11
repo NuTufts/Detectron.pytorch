@@ -147,7 +147,7 @@ def im_detect_all(model, im, box_proposals=None, timers=None, use_polygon=True )
         cls_keyps = None
 
     if use_polygon:
-        return cls_boxes, cls_segms, cls_keyps
+        return cls_boxes, cls_segms, cls_keyps, None
     else:
         return cls_boxes, cls_segms, cls_keyps, round_boxes
 

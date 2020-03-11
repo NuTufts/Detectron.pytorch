@@ -115,7 +115,8 @@ def get_class_string(class_index, score, dataset):
 def vis_one_image(
         im, im_name, output_dir, boxes, segms=None, keypoints=None, thresh=0.9,
         kp_thresh=2, dpi=200, box_alpha=0.0, dataset=None, show_class=False,
-        ext='pdf', plain_img=False, no_adc=False, show_roi_num=False, entry=-1):
+        ext='pdf', plain_img=False, no_adc=False, show_roi_num=False, entry=-1,
+        run=-1, subrun=-1,event=-1):
     """Visual debugging of detections."""
     # print("SHAPE DESIRED:", boxes.shape)
 
@@ -186,6 +187,9 @@ def vis_one_image(
     if plain_img:
         output_name = os.path.basename(im_name) + '.' + ext
         fig.savefig(os.path.join(output_dir, '{}'.format(output_name)), dpi=dpi)
+        output_name = os.path.basename(im_name) + '.png'
+        fig.savefig(os.path.join(output_dir, '{}'.format(output_name)), dpi=dpi)
+
         plt.close('all')
 
 
@@ -199,11 +203,32 @@ def vis_one_image(
                 bbox=dict(
                     facecolor='g', alpha=0.4, pad=0, edgecolor='none'),
                 color='white')
+        if run != -1:
+            ax.text(
+                10,500,
+                "Run: "+str(run) + " Subrun: " + str(subrun) + " Event: " + str(event),
+                fontsize=12,
+                family='serif',
+                bbox=dict(
+                    facecolor='g', alpha=0.4, pad=0, edgecolor='none'),
+                color='white')
         for i in sorted_inds:
+            if classes[i] != 5:
+                continue
             bbox = boxes[i, :4]
             score = boxes[i, -1]
             if score < thresh:
                 continue
+
+            img = np.ones(im.shape)
+            color_mask = color_list[mask_color_id % len(color_list), 0:3]
+            mask_color_id += 1
+
+            w_ratio = .4
+            for c in range(3):
+                color_mask[c] = color_mask[c] * (1 - w_ratio) + w_ratio
+            for c in range(3):
+                img[:, :, c] = color_mask[c]
 
             print(dataset.classes[classes[i]], score)
             # show box (off by default, box_alpha=0.0)
@@ -211,8 +236,8 @@ def vis_one_image(
                 plt.Rectangle((bbox[0], bbox[1]),
                               bbox[2] - bbox[0],
                               bbox[3] - bbox[1],
-                              fill=False, edgecolor='y',
-                              linewidth=0.5, alpha=box_alpha))
+                              fill=False, edgecolor=color_mask,
+                              linewidth=2.5, alpha=box_alpha))
 
             if show_class:
                 # if (bbox[1] < )
@@ -267,15 +292,7 @@ def vis_one_image(
                 # print()
                 # print('             masks:', type(masks), masks.shape)
 
-                img = np.ones(im.shape)
-                color_mask = color_list[mask_color_id % len(color_list), 0:3]
-                mask_color_id += 1
 
-                w_ratio = .4
-                for c in range(3):
-                    color_mask[c] = color_mask[c] * (1 - w_ratio) + w_ratio
-                for c in range(3):
-                    img[:, :, c] = color_mask[c]
                 if once:
                     np.set_printoptions(threshold=np.inf)
                     # print(i)
@@ -304,55 +321,57 @@ def vis_one_image(
                         alpha=0.5)
                     ax.add_patch(polygon)
 
-            # show keypoints
-            if keypoints is not None and len(keypoints) > i:
-                kps = keypoints[i]
-                plt.autoscale(False)
-                for l in range(len(kp_lines)):
-                    i1 = kp_lines[l][0]
-                    i2 = kp_lines[l][1]
-                    if kps[2, i1] > kp_thresh and kps[2, i2] > kp_thresh:
-                        x = [kps[0, i1], kps[0, i2]]
-                        y = [kps[1, i1], kps[1, i2]]
-                        line = ax.plot(x, y)
-                        plt.setp(line, color=colors[l], linewidth=1.0, alpha=0.7)
-                    if kps[2, i1] > kp_thresh:
-                        ax.plot(
-                            kps[0, i1], kps[1, i1], '.', color=colors[l],
-                            markersize=3.0, alpha=0.7)
-                    if kps[2, i2] > kp_thresh:
-                        ax.plot(
-                            kps[0, i2], kps[1, i2], '.', color=colors[l],
-                            markersize=3.0, alpha=0.7)
-
-                # add mid shoulder / mid hip for better visualization
-                mid_shoulder = (
-                    kps[:2, dataset_keypoints.index('right_shoulder')] +
-                    kps[:2, dataset_keypoints.index('left_shoulder')]) / 2.0
-                sc_mid_shoulder = np.minimum(
-                    kps[2, dataset_keypoints.index('right_shoulder')],
-                    kps[2, dataset_keypoints.index('left_shoulder')])
-                mid_hip = (
-                    kps[:2, dataset_keypoints.index('right_hip')] +
-                    kps[:2, dataset_keypoints.index('left_hip')]) / 2.0
-                sc_mid_hip = np.minimum(
-                    kps[2, dataset_keypoints.index('right_hip')],
-                    kps[2, dataset_keypoints.index('left_hip')])
-                if (sc_mid_shoulder > kp_thresh and
-                        kps[2, dataset_keypoints.index('nose')] > kp_thresh):
-                    x = [mid_shoulder[0], kps[0, dataset_keypoints.index('nose')]]
-                    y = [mid_shoulder[1], kps[1, dataset_keypoints.index('nose')]]
-                    line = ax.plot(x, y)
-                    plt.setp(
-                        line, color=colors[len(kp_lines)], linewidth=1.0, alpha=0.7)
-                if sc_mid_shoulder > kp_thresh and sc_mid_hip > kp_thresh:
-                    x = [mid_shoulder[0], mid_hip[0]]
-                    y = [mid_shoulder[1], mid_hip[1]]
-                    line = ax.plot(x, y)
-                    plt.setp(
-                        line, color=colors[len(kp_lines) + 1], linewidth=1.0,
-                        alpha=0.7)
+            # # show keypoints
+            # if keypoints is not None and len(keypoints) > i:
+            #     kps = keypoints[i]
+            #     plt.autoscale(False)
+            #     for l in range(len(kp_lines)):
+            #         i1 = kp_lines[l][0]
+            #         i2 = kp_lines[l][1]
+            #         if kps[2, i1] > kp_thresh and kps[2, i2] > kp_thresh:
+            #             x = [kps[0, i1], kps[0, i2]]
+            #             y = [kps[1, i1], kps[1, i2]]
+            #             line = ax.plot(x, y)
+            #             plt.setp(line, color=colors[l], linewidth=1.0, alpha=0.7)
+            #         if kps[2, i1] > kp_thresh:
+            #             ax.plot(
+            #                 kps[0, i1], kps[1, i1], '.', color=colors[l],
+            #                 markersize=3.0, alpha=0.7)
+            #         if kps[2, i2] > kp_thresh:
+            #             ax.plot(
+            #                 kps[0, i2], kps[1, i2], '.', color=colors[l],
+            #                 markersize=3.0, alpha=0.7)
+            #
+            #     # add mid shoulder / mid hip for better visualization
+            #     mid_shoulder = (
+            #         kps[:2, dataset_keypoints.index('right_shoulder')] +
+            #         kps[:2, dataset_keypoints.index('left_shoulder')]) / 2.0
+            #     sc_mid_shoulder = np.minimum(
+            #         kps[2, dataset_keypoints.index('right_shoulder')],
+            #         kps[2, dataset_keypoints.index('left_shoulder')])
+            #     mid_hip = (
+            #         kps[:2, dataset_keypoints.index('right_hip')] +
+            #         kps[:2, dataset_keypoints.index('left_hip')]) / 2.0
+            #     sc_mid_hip = np.minimum(
+            #         kps[2, dataset_keypoints.index('right_hip')],
+            #         kps[2, dataset_keypoints.index('left_hip')])
+            #     if (sc_mid_shoulder > kp_thresh and
+            #             kps[2, dataset_keypoints.index('nose')] > kp_thresh):
+            #         x = [mid_shoulder[0], kps[0, dataset_keypoints.index('nose')]]
+            #         y = [mid_shoulder[1], kps[1, dataset_keypoints.index('nose')]]
+            #         line = ax.plot(x, y)
+            #         plt.setp(
+            #             line, color=colors[len(kp_lines)], linewidth=1.0, alpha=0.7)
+            #     if sc_mid_shoulder > kp_thresh and sc_mid_hip > kp_thresh:
+            #         x = [mid_shoulder[0], mid_hip[0]]
+            #         y = [mid_shoulder[1], mid_hip[1]]
+            #         line = ax.plot(x, y)
+            #         plt.setp(
+            #             line, color=colors[len(kp_lines) + 1], linewidth=1.0,
+            #             alpha=0.7)
 
             output_name = os.path.basename(im_name) + '.' + ext
+            fig.savefig(os.path.join(output_dir, '{}'.format(output_name)), dpi=dpi)
+            output_name = os.path.basename(im_name) + '.png'
             fig.savefig(os.path.join(output_dir, '{}'.format(output_name)), dpi=dpi)
             plt.close('all')

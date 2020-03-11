@@ -168,12 +168,19 @@ def load_ckpt(model, ckpt):
     # for keys in mapping.keys():
     #     print(keys)
     state_dict = {}
+    model_state_dict = model.state_dict()
     for name in ckpt:
         # print(name, "IS NAME")
         if mapping[name]:
-            state_dict[name] = ckpt[name]
+            state_dict[name] = sparsify_weight(ckpt[name], model_state_dict[name])
+
     model.load_state_dict(state_dict, strict=False)
 
+def sparsify_weight(weight, model_weight):
+    if weight.shape == model_weight.shape:
+        return weight
+    else:
+        return weight.permute(2,3,1,0).view(model_weight.shape)
 
 def get_group_gn(dim):
     """

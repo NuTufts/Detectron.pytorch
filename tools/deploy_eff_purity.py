@@ -99,6 +99,11 @@ def parse_args():
         help='Perform Infer on num_images or total images in file, whichever is less',
         default=0, type=int)
 
+    parser.add_argument(
+        '--only_class',
+        help='Pick one class to calc efficiency and purity for',
+        default=-1, type=int)
+
     args = parser.parse_args()
 
 
@@ -204,55 +209,54 @@ def main():
         maskRCNN = mynn.DataSingular(maskRCNN, cpu_keywords=['im_info', 'roidb'],
                              minibatch=True , device_id=[cfg.MODEL.DEVICE]) #
 
-        maskRCNN.eval()
+        maskRCNN = maskRCNN.eval()
         #Get Our ROOT Storage Set Up
-        step = str((load_name.split("model_step",1)[1]).split(".pth",1)[0])
+        step = str(0)
+        if "model_step" in load_name:
+            step = str((load_name.split("model_step",1)[1]).split(".pth",1)[0])
         while len(step) < 7:
             step = "0"+step
         f = ROOT.TFile(args.output_dir+"/Eff_Pur_"+step+'.root', 'recreate' )
-        t = ROOT.TTree( 'Eff_Purity_'+step, 'Efficiency and Purity' )
+        # threshold_list = [0.2,0.4,0.7,0.9]
+        threshold_list = [0.4]
+        t = [ROOT.TTree( 'Eff_Purity_'+step+str(thresh), 'Efficiency and Purity' ) for thresh in threshold_list]
         #Vectors for Buffer
-        Purities = ROOT.vector('float')()
-        Pur_Avg = ROOT.vector('float')()
-        Pur_IoU_1 =  ROOT.vector('float')()
-        Pur_IoU_2 =  ROOT.vector('float')()
-        Pred_Area =  ROOT.vector('int')()
-        Idx_Same =  ROOT.vector('int')()
+        Purities = [ROOT.vector('float')() for thresh in threshold_list]
+        Pur_Avg = [ROOT.vector('float')() for thresh in threshold_list]
+        Pur_IoU_1 =  [ROOT.vector('float')() for thresh in threshold_list]
+        Pur_IoU_2 =  [ROOT.vector('float')() for thresh in threshold_list]
+        Pred_Area =  [ROOT.vector('int')() for thresh in threshold_list]
+        Idx_Same =  [ROOT.vector('int')() for thresh in threshold_list]
+
+        Eff = [ROOT.vector('float')() for thresh in threshold_list]
+        EffAvg = [ROOT.vector('float')() for thresh in threshold_list]
+        Eff_IoU_1 =  [ROOT.vector('float')() for thresh in threshold_list]
+        GT_Area =  [ROOT.vector('int')() for thresh in threshold_list]
+
+        EffCharge = [ROOT.vector('float')() for thresh in threshold_list]
+        EffChargeAvg = [ROOT.vector('float')() for thresh in threshold_list]
 
 
-        Eff = ROOT.vector('float')()
-        EffAvg = ROOT.vector('float')()
-        Eff_IoU_1 =  ROOT.vector('float')()
-        GT_Area =  ROOT.vector('int')()
-
-        EffCharge = ROOT.vector('float')()
-        EffChargeAvg = ROOT.vector('float')()
-
-
-        Ev_Num =  ROOT.vector('int')()
-
+        Ev_Num = [ROOT.vector('int')() for thresh in threshold_list]
 
 
         #Branches for storage
-        purity_branch = t.Branch( 'Purities' , Purities )
-        purity_avg_branch = t.Branch( 'Pur_Avg' , Pur_Avg )
-        purity_best_iou_branch = t.Branch( 'Pur_IoU_1' , Pur_IoU_1 )
-        purity_next_best_iou_branch = t.Branch( 'Pur_IoU_2' , Pur_IoU_2 )
-        purity_pred_area = t.Branch( 'Pred_Area' , Pred_Area )
-
-        Idx_Same_branch = t.Branch( 'Idx_Same' , Idx_Same )
-
-
-        efficiency_branch = t.Branch( 'Eff' , Eff)
-        efficiency_avg_branch = t.Branch( 'EffAvg' , EffAvg)
-        efficiency_charge_branch = t.Branch( 'EffCharge' , EffCharge)
-        efficiency_charge_avg_branch = t.Branch( 'EffChargeAvg' , EffChargeAvg)
-        efficiency_iou_branch = t.Branch( 'Eff_IoU_1' , Eff_IoU_1)
-        efficiency_gt_area = t.Branch( 'GT_Area' , GT_Area)
+        purity_branch = [t[thresh_idx].Branch( 'Purities' , Purities[thresh_idx] ) for thresh_idx in range(len(threshold_list))]
+        purity_avg_branch = [t[thresh_idx].Branch( 'Pur_Avg' , Pur_Avg[thresh_idx] ) for thresh_idx in range(len(threshold_list))]
+        purity_best_iou_branch = [t[thresh_idx].Branch( 'Pur_IoU_1' , Pur_IoU_1[thresh_idx] ) for thresh_idx in range(len(threshold_list))]
+        purity_next_best_iou_branch = [t[thresh_idx].Branch( 'Pur_IoU_2' , Pur_IoU_2[thresh_idx] ) for thresh_idx in range(len(threshold_list))]
+        purity_pred_area = [t[thresh_idx].Branch( 'Pred_Area' , Pred_Area[thresh_idx] ) for thresh_idx in range(len(threshold_list))]
+        Idx_Same_branch = [t[thresh_idx].Branch( 'Idx_Same' , Idx_Same[thresh_idx] ) for thresh_idx in range(len(threshold_list))]
 
 
+        efficiency_branch = [t[thresh_idx].Branch( 'Eff' , Eff[thresh_idx]) for thresh_idx in range(len(threshold_list))]
+        efficiency_avg_branch = [t[thresh_idx].Branch( 'EffAvg' , EffAvg[thresh_idx]) for thresh_idx in range(len(threshold_list))]
+        efficiency_charge_branch = [t[thresh_idx].Branch( 'EffCharge' , EffCharge[thresh_idx]) for thresh_idx in range(len(threshold_list))]
+        efficiency_charge_avg_branch = [t[thresh_idx].Branch( 'EffChargeAvg' , EffChargeAvg[thresh_idx]) for thresh_idx in range(len(threshold_list))]
+        efficiency_iou_branch = [t[thresh_idx].Branch( 'Eff_IoU_1' , Eff_IoU_1[thresh_idx]) for thresh_idx in range(len(threshold_list))]
+        efficiency_gt_area = [t[thresh_idx].Branch( 'GT_Area' , GT_Area[thresh_idx]) for thresh_idx in range(len(threshold_list))]
 
-        event_num_branch = t.Branch( 'Ev_Num' , Ev_Num)
+        event_num_branch = [t[thresh_idx].Branch( 'Ev_Num' , Ev_Num[thresh_idx]) for thresh_idx in range(len(threshold_list))]
 
 
         if args.image_dir:
@@ -350,12 +354,13 @@ def main():
             # print('start')
             # print(im[0:100,0:100,0])
             # print('stop')
-            # im = cv2.imread(file_list[i])
+            # im = cv2.imread(file_list[thresh_idx])
             assert im is not None
 
             timers = defaultdict(Timer)
 
-            cls_boxes, cls_segms, cls_keyps = im_detect_all(maskRCNN, im, timers=timers)
+            # cls_boxes, cls_segms, cls_keyps = im_detect_all(maskRCNN, im, timers=timers)
+            cls_boxes, cls_segms, cls_keyps, round_boxes = im_detect_all(maskRCNN, im, timers=timers, use_polygon=True)
 
 
             pred_boxes, segms, keypoints, pred_classes = vis_utils.convert_from_cls_format(
@@ -367,118 +372,161 @@ def main():
 
             #let's delete predictions below some threshold 0.7 what's been used in
             #imaging deploy
+            for idx in range(len(threshold_list)):
+                # copy_pred_masks = np.copy(pred_masks)
+                # copy_pred_boxes = np.copy(pred_boxes)
+                # copy_gt_masks = np.copy(gt_masks)
+                # copy_gt_boxes = np.copy(gt_boxes)
+                copy_pred_masks = pred_masks
+                copy_pred_boxes = pred_boxes
+                copy_pred_classes = pred_classes
+                copy_gt_masks = gt_masks
+                copy_gt_boxes = gt_boxes
+                print("Idx" ,idx)
+                threshold = threshold_list[idx] #0.7
+                print("Threshold",threshold)
+                print(copy_pred_masks.shape)
+                print(copy_pred_boxes.shape)
+                print(copy_pred_classes)
+                print(copy_gt_masks.shape)
+                print(copy_gt_boxes.shape)
+                pred_ind = 0
+                # Cut prediction on score threshold
+                while pred_ind < copy_pred_boxes.shape[0]:
+                    if copy_pred_boxes[pred_ind,:][4] < threshold:
+                        copy_pred_masks = np.delete(copy_pred_masks, pred_ind, 2)
+                        copy_pred_boxes = np.delete(copy_pred_boxes, pred_ind, 0)
+                        copy_pred_classes.pop(pred_ind)
+                        if copy_pred_boxes is None:
+                            break
+                    else:
+                        pred_ind +=1
+                # Cut prediction on class
+                pred_ind = 0
+                if args.only_class:
+                    while pred_ind < copy_pred_boxes.shape[0]:
+                        if copy_pred_classes[pred_ind] != args.only_class:
+                            copy_pred_masks = np.delete(copy_pred_masks, pred_ind, 2)
+                            copy_pred_boxes = np.delete(copy_pred_boxes, pred_ind, 0)
+                            copy_pred_classes.pop(pred_ind)
+                            if copy_pred_boxes is None:
+                                break
+                        else:
+                            pred_ind +=1
+                    gt_ind = 0
+                    while gt_ind < copy_gt_boxes.shape[0]:
+                        if copy_gt_boxes[gt_ind][4] != args.only_class:
+                            copy_gt_masks = np.delete(copy_gt_masks, gt_ind, 2)
+                            copy_gt_boxes = np.delete(copy_gt_boxes, gt_ind, 0)
+                            if copy_gt_boxes is None:
+                                print("No neutrino class examples left")
+                                break
+                        else:
+                            gt_ind +=1
 
-            threshold = 0.4 #0.7
-            pred_ind = 0
-            if pred_boxes is None:
-                continue
-            while pred_ind < pred_boxes.shape[0]:
+                if copy_pred_boxes is None:
+                    continue
 
-                if pred_boxes[pred_ind,:][4] < threshold:
-                    pred_masks = np.delete(pred_masks, pred_ind, 2)
-                    pred_boxes = np.delete(pred_boxes, pred_ind, 0)
-                    if pred_boxes is None:
-                        break
+                # print("-----------------------------------")
+                # print("///////////////Start///////////////")
+                # print("-----------------------------------")
+                #Threshold the adc_image_bin to be conveyed to our purity/efficiency calcs
+                adc_image_bin = np.copy(im_2d)
+                # adc_image_bin[adc_image_bin != 1]  = 1
+                adc_image_bin[adc_image_bin < 10] = 0
+                adc_no_bin = np.copy(adc_image_bin)
+
+                adc_image_bin[adc_image_bin >= 10] = 1
+
+                # print("-----------------------------------")
+                # print("///////////////Purity//////////////")
+                # print("-----------------------------------")
+                # print()
+
+                sum_purity=0.0
+
+                for pred_index in range(copy_pred_masks.shape[2]):
+
+                    purity, best_iou_purity, next_best_iou, same = purity_calculation(copy_pred_boxes[pred_index,:], copy_pred_masks[:,:,pred_index], copy_gt_boxes, copy_gt_masks, adc_image_bin)
+                    sum_purity += purity
+                    area = (np.ceil(copy_pred_boxes[pred_index,3])+1 - np.floor(copy_pred_boxes[pred_index,1])) * (np.ceil(copy_pred_boxes[pred_index,2])+1 - np.floor(copy_pred_boxes[pred_index,0]))
+                    print("Cls:", copy_pred_classes[pred_index],"   Confidence:",copy_pred_boxes[pred_index,4], "  Pur:",purity)
+                    Purities[idx].push_back(purity)
+                    Pur_IoU_1[idx].push_back(best_iou_purity)
+                    Pur_IoU_2[idx].push_back(next_best_iou)
+                    Pred_Area[idx].push_back(int(area))
+                    Idx_Same[idx].push_back(same)
+
+
+                if copy_pred_masks.shape[2] ==0:
+                    avg_purity = 0
                 else:
-                    pred_ind +=1
-            if pred_boxes is None:
-                continue
-            # print("-----------------------------------")
-            # print("///////////////Start///////////////")
-            # print("-----------------------------------")
-            #Threshold the adc_image_bin to be conveyed to our purity/efficiency calcs
-            adc_image_bin = im_2d
-            # adc_image_bin[adc_image_bin != 1]  = 1
-            adc_image_bin[adc_image_bin < 10] = 0
-            adc_no_bin = np.copy(adc_image_bin)
+                    Pur_Avg[idx].push_back(float(sum_purity)/float(copy_pred_masks.shape[2]))
+                # print("-----------------------------------")
+                # print("/////////////Efficiency////////////")
+                # print("-----------------------------------")
+                # print()
+                sum_efficiency=0.0
+                num_uncounted = 0
+                for gt_index in range(copy_gt_masks.shape[2]):
+                    efficiency = efficiency_calculation_single(copy_gt_boxes[gt_index,:], copy_gt_masks[:,:,gt_index], copy_pred_boxes, copy_pred_masks, adc_image_bin)
+                    if efficiency == -1:
+                        num_uncounted +=1
+                        continue
+                    best_iou_efficiency = best_iou(gt_index, copy_gt_boxes)
+                    sum_efficiency+=efficiency
+                    area = (copy_gt_boxes[gt_index,2]+1-copy_gt_boxes[gt_index,0])*(copy_gt_boxes[gt_index,3]+1-copy_gt_boxes[gt_index,1])
+                    #Record the things we need
+                    GT_Area[idx].push_back(int(area))
+                    print("Cls:",copy_gt_boxes[gt_index,4],"Eff", efficiency)
+                    Eff[idx].push_back(efficiency)
+                    Eff_IoU_1[idx].push_back(best_iou_efficiency)
 
-            adc_image_bin[adc_image_bin >= 10] = 1
+                if copy_gt_masks.shape[2] - num_uncounted == 0:
+                    avg_efficiency=0
+                else:
+                    EffAvg[idx].push_back(float(sum_efficiency)/float(copy_gt_masks.shape[2] - num_uncounted))
 
-            # print("-----------------------------------")
-            # print("///////////////Purity//////////////")
-            # print("-----------------------------------")
-            # print()
+                #Do Charge efficiencysum_efficiency=0.0
+                num_uncounted = 0
+                sum_efficiency_charge = 0.0
+                for gt_index in range(copy_gt_masks.shape[2]):
+                    efficiency_charge = efficiency_calculation_single(copy_gt_boxes[gt_index,:], copy_gt_masks[:,:,gt_index], copy_pred_boxes, copy_pred_masks, adc_no_bin)
+                    if efficiency_charge == -1:
+                        num_uncounted +=1
+                        continue
+                    sum_efficiency_charge +=efficiency_charge
+                    #Record the things we need
 
-            sum_purity=0.0
+                    EffCharge[idx].push_back(efficiency_charge)
 
-            for pred_index in range(pred_masks.shape[2]):
-                purity, best_iou_purity, next_best_iou, same = purity_calculation(pred_boxes[pred_index,:], pred_masks[:,:,pred_index], gt_boxes, gt_masks, adc_image_bin)
-                sum_purity += purity
-                area = (np.ceil(pred_boxes[pred_index,3])+1 - np.floor(pred_boxes[pred_index,1])) * (np.ceil(pred_boxes[pred_index,2])+1 - np.floor(pred_boxes[pred_index,0]))
-                Purities.push_back(purity)
-                Pur_IoU_1.push_back(best_iou_purity)
-                Pur_IoU_2.push_back(next_best_iou)
-                Pred_Area.push_back(int(area))
-                Idx_Same.push_back(same)
-
-
-            if pred_masks.shape[2] ==0:
-                avg_purity = 0
-            else:
-                Pur_Avg.push_back(float(sum_purity)/float(pred_masks.shape[2]))
-            # print("-----------------------------------")
-            # print("/////////////Efficiency////////////")
-            # print("-----------------------------------")
-            # print()
-            sum_efficiency=0.0
-            num_uncounted = 0
-            for gt_index in range(gt_masks.shape[2]):
-                efficiency = efficiency_calculation_union(gt_boxes[gt_index,:], gt_masks[:,:,gt_index], pred_boxes, pred_masks, adc_image_bin)
-                if efficiency == -1:
-                    num_uncounted +=1
-                    continue
-                best_iou_efficiency = best_iou(gt_index, gt_boxes)
-                sum_efficiency+=efficiency
-                area = (gt_boxes[gt_index,2]+1-gt_boxes[gt_index,0])*(gt_boxes[gt_index,3]+1-gt_boxes[gt_index,1])
-                #Record the things we need
-                GT_Area.push_back(int(area))
-                Eff.push_back(efficiency)
-                Eff_IoU_1.push_back(best_iou_efficiency)
-
-            if gt_masks.shape[2] - num_uncounted == 0:
-                avg_efficiency=0
-            else:
-                EffAvg.push_back(float(sum_efficiency)/float(gt_masks.shape[2] - num_uncounted))
-
-            #Do Charge efficiencysum_efficiency=0.0
-            num_uncounted = 0
-            sum_efficiency_charge = 0.0
-            for gt_index in range(gt_masks.shape[2]):
-                efficiency_charge = efficiency_calculation_union(gt_boxes[gt_index,:], gt_masks[:,:,gt_index], pred_boxes, pred_masks, adc_no_bin)
-                if efficiency_charge == -1:
-                    num_uncounted +=1
-                    continue
-                sum_efficiency_charge +=efficiency_charge
-                #Record the things we need
-
-                EffCharge.push_back(efficiency_charge)
-
-            if gt_masks.shape[2] - num_uncounted == 0:
-                avg_efficiency_charge=0
-            else:
-                EffChargeAvg.push_back(float(sum_efficiency_charge)/float(gt_masks.shape[2] - num_uncounted))
+                if copy_gt_masks.shape[2] - num_uncounted == 0:
+                    avg_efficiency_charge=0
+                else:
+                    EffChargeAvg[idx].push_back(float(sum_efficiency_charge)/float(copy_gt_masks.shape[2] - num_uncounted))
 
 
 
 
-            #End of entry loop, fill root file
-            Ev_Num.push_back(i)
-            t.Fill()
-            Purities.clear()
-            Pur_Avg.clear()
-            Pur_IoU_1.clear()
-            Pur_IoU_2.clear()
-            Pred_Area.clear()
-            Idx_Same.clear()
+                #End of entry loop, fill root file
+                Ev_Num[idx].push_back(i)
 
-            Eff.clear()
-            EffAvg.clear()
-            EffCharge.clear()
-            EffChargeAvg.clear()
-            Eff_IoU_1.clear()
-            GT_Area.clear()
+                t[idx].Fill()
+                Purities[idx].clear()
+                Pur_Avg[idx].clear()
+                Pur_IoU_1[idx].clear()
+                Pur_IoU_2[idx].clear()
+                Pred_Area[idx].clear()
+                Idx_Same[idx].clear()
 
-            Ev_Num.clear()
+                Eff[idx].clear()
+                EffAvg[idx].clear()
+                EffCharge[idx].clear()
+                EffChargeAvg[idx].clear()
+                Eff_IoU_1[idx].clear()
+                GT_Area[idx].clear()
+
+                Ev_Num[idx].clear()
 
 
         time_this_ckpt = time.time() - start_ckpt_time
