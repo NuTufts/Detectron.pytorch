@@ -204,8 +204,8 @@ def mask_rcnn_losses(masks_pred, masks_int32):
     masks_gt_np = np.reshape(masks_gt_np, (masks_gt_np.shape[0],cfg.MODEL.NUM_CLASSES,resolution,resolution))
     this_class = -1
 
-    acc_list = [[],[],[],[],[],[],[]]
-    acc_acc = np.array([-1.,-1.,-1.,-1.,-1.,-1.,-1.,-1.])
+    acc_list = [[] for i in range(cfg.MODEL.NUM_CLASSES)]
+    acc_acc = np.ones(cfg.MODEL.NUM_CLASSES+1)*-1.0 #plus one because you want a net accuracy too
     for roi in range(masks_gt_np.shape[0]):
         for clas in range(cfg.MODEL.NUM_CLASSES):
             sum = masks_gt_np[roi][clas][:][:].sum()

@@ -977,7 +977,7 @@ def make_default_config():
     C.ROOT_DIR = osp.abspath(osp.join(osp.dirname(__file__), '..', '..'))
 
     # Output basedir
-    C.OUTPUT_DIR = '/home/jmills/workdir/mask-rcnn.pytorch/Outputs'
+    C.OUTPUT_DIR = '/home/jmills/workdir/multiclass_maskrcnn/Outputs'
 
     # Name (or path to) the matlab executable
     C.MATLAB = 'matlab'

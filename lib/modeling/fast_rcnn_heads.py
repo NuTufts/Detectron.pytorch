@@ -80,11 +80,15 @@ def fast_rcnn_losses(cls_score, bbox_pred, label_int32, bbox_targets,
     numerator   = (( rois_label > 0 ).float() * cls_preds.eq(rois_label).float() ).float().sum(dim=0).float()
     denominator = (rois_label > 0 ).float().sum(dim=0).float()
 
-    num_cosm = (( rois_label == 1 ).float() * cls_preds.eq(rois_label).float() ).float().sum(dim=0).float()
+    num_cosm_left  = (( rois_label == 1 ).float() * cls_preds.eq(rois_label).float() ).float().sum(dim=0).float()
+    num_cosm_right = (( rois_label == 7 ).float() * cls_preds.eq(rois_label).float() ).float().sum(dim=0).float()
+
     num_neut = (( rois_label == 5 ).float() * cls_preds.eq(rois_label).float() ).float().sum(dim=0).float()
     num_back = (( rois_label == 0 ).float() * cls_preds.eq(rois_label).float() ).float().sum(dim=0).float()
 
-    den_cosm = (rois_label == 1 ).float().sum(dim=0).float()
+    den_cosm_left  = (rois_label == 1 ).float().sum(dim=0).float()
+    den_cosm_right = (rois_label == 7 ).float().sum(dim=0).float()
+
     den_neut = (rois_label == 5 ).float().sum(dim=0).float()
     den_back = (rois_label == 0 ).float().sum(dim=0).float()
 
@@ -93,51 +97,68 @@ def fast_rcnn_losses(cls_score, bbox_pred, label_int32, bbox_targets,
     # print("Denominator: ", denominator.item())
 
     accuracy_cls = numerator/denominator
-    accuracy_cosm = -1
+    accuracy_cosm_left = -1
+    accuracy_cosm_right = -1
+
     accuracy_neut = -1
 
     if den_neut != 0:
         accuracy_neut = num_neut/den_neut
-    if den_cosm != 0:
-        accuracy_cosm = num_cosm/den_cosm
+    if den_cosm_left != 0:
+        accuracy_cosm_left = num_cosm_left/den_cosm_left
+    if den_cosm_right != 0:
+        accuracy_cosm_right = num_cosm_right/den_cosm_right
     # accuracy_cls = cls_preds.eq(rois_label).float().mean(dim=0)
     # original
     # accuracy_cls = cls_preds.eq(rois_label).float().mean(dim=0)
     neut_weight = 0
-    cosmic_weight = 0
+    cosmic_left_weight = 0
+    cosmic_right_weight = 0
+
     print("num_pred_neut: ", cls_preds.eq(5).float().sum(dim=0).float().item())
-    print("num_pred_cosm: ", cls_preds.eq(1).float().sum(dim=0).float().item())
+    print("num_pred_cosm_left: ", cls_preds.eq(1).float().sum(dim=0).float().item())
+    print("num_pred_cosm_right: ", cls_preds.eq(7).float().sum(dim=0).float().item())
+
     print("num_pred_back: ", cls_preds.eq(0).float().sum(dim=0).float().item())
     print()
     print("num_correct_neut: ", num_neut.item())
-    print("num_correct_cosm: ", num_cosm.item())
+    print("num_correct_cosm_left: ", num_cosm_left.item())
+    print("num_correct_cosm_right: ", num_cosm_right.item())
     print("num_correct_back: ", num_back.item())
     print()
     print("den_neut: ", den_neut.item())
-    print("den_cosm: ", den_cosm.item())
+    print("den_cosm_left: " , den_cosm_left.item())
+    print("den_cosm_right: ", den_cosm_right.item())
+
     print("den_back: ", den_back.item())
     mult = 2. #upweight relative to background cases
-    if (den_neut ==0) or (den_cosm ==0):
+    # this next if/else doesn't do anything turns out, vals get overwritten right after.
+    if (den_neut ==0) or (den_cosm_right+den_cosm_left ==0):
         neut_weight=1.*mult
-        cosmic_weight=1.*mult
+        cosmic_left_weight=1.*mult
+        cosmic_right_weight=1.*mult
+
     else:
-        neut_weight= float(den_cosm)/float(den_neut+den_cosm)*mult
-        cosmic_weight= float(den_neut)/float(den_cosm+den_neut)*mult
+        neut_weight= float(den_cosm_left+den_cosm_right)/float(den_neut+den_cosm_left+den_cosm_right)*mult
+        cosmic_weight= float(den_neut)/float(den_cosm_right+den_cosm_left+den_neut)*mult
 
     neut_weight = 3498/194*mult #this is the num of cosmics/num neutrinos
-    cosmic_weight = 1*mult
+    cosmic_left_weight = 1*mult*0.5 #include half because we split cosm into 2 parts now.
+    cosmic_right_weight = 1*mult*0.5
 
     weight = np.zeros(cls_score.shape[1],np.float32)
     weight[0] = 1
-    weight[1] = cosmic_weight
+    weight[1] = cosmic_left_weight
     weight[5] = neut_weight
+    weight[7] = cosmic_right_weight
+
      # = np.array([1,cosmic_weight,0,0,0,neut_weight,0], np.float32)
     weight = (torch.from_numpy(weight)).to(torch.device(device_id))
     loss_cls = F.cross_entropy(cls_score,rois_label,weight)
 
 
 
-    return loss_cls, loss_bbox, accuracy_cls, accuracy_neut, accuracy_cosm
+    return loss_cls, loss_bbox, accuracy_cls, accuracy_neut, accuracy_cosm_left, accuracy_cosm_right
 
 
 # ---------------------------------------------------------------------------- #

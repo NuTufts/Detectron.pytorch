@@ -49,6 +49,7 @@ try:
     import matplotlib.pyplot as plt
 except:
     pass
+import random
 
 
 logger = logging.getLogger(__name__)
@@ -75,9 +76,9 @@ class LArCVDataset(object):
         # self.COCO = COCO(DATASETS[name][ANN_FN])
         self.debug_timer = Timer()
         # Set up dataset classes
-        category_ids = [1,2,3,4,5,6]
+        category_ids = [1,2,3,4,5,6,7]
         # category_ids = self.COCO.getCatIds()
-        categories = ['Cosmic', 'Neutron', 'Proton', 'Electron', 'Neutrino', 'Other']
+        categories = ['Cosmic_Left','Neutron', 'Proton', 'Electron', 'Neutrino', 'Other', 'Cosmic_Right']
         # categories = [c['name'] for c in self.COCO.loadCats(category_ids)]
         self.category_to_id_map = dict(zip(categories, category_ids))
         self.classes = ['__background__'] + categories
@@ -91,8 +92,8 @@ class LArCVDataset(object):
             self.validation =False
 
         #Note we don't need these, but for now I include them so that we don't have to find where they get used -j
-        self.json_category_id_to_contiguous_id = {1:1 , 2:2, 3:3, 4:4, 5:5, 6:6}
-        self.contiguous_category_id_to_json_id = {1:1 , 2:2, 3:3, 4:4, 5:5, 6:6}
+        self.json_category_id_to_contiguous_id = {1:1 , 2:2, 3:3, 4:4, 5:5, 6:6, 7:7}
+        self.contiguous_category_id_to_json_id = {1:1 , 2:2, 3:3, 4:4, 5:5, 6:6, 7:7}
 
 
     @property
@@ -155,7 +156,7 @@ class LArCVDataset(object):
 
         self.NUM_IMAGES=clustermask_cluster_crop_chain.GetEntries()
         print("Total Possible Entries: ", self.NUM_IMAGES)
-        # self.NUM_IMAGES=10000
+        self.NUM_IMAGES=10
         print("Actually Using: ", self.NUM_IMAGES)
 
         # self.NUM_IMAGES=clustermask_cluster_crop_chain.GetEntries() - 154000
@@ -393,6 +394,10 @@ class LArCVDataset(object):
         im_has_visible_keypoints = False
         for ix, obj in enumerate(valid_objs):
             cls = int(larcv.as_ndarray_bbox(obj['mask'])[4])
+            if cls == 1:
+                r = random.random()
+                if r > 0.5:
+                    cls = 7
             boxes[ix, :] = obj['clean_bbox']
             gt_classes[ix] = cls
             seg_areas[ix] = obj['area']
