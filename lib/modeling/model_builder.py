@@ -186,7 +186,7 @@ class Generalized_RCNN(nn.Module):
     def _forward(self, data, im_info, roidb=None, **rpn_kwargs):
         # self.timers['begin_forward_pass']=time.time()
         relative_time =time.time()
-
+        # print("Im_Info", type(im_info),im_info.shape,im_info)
         torch.cuda.synchronize
         t_st = time.time()
         im_data = data
@@ -290,7 +290,7 @@ class Generalized_RCNN(nn.Module):
             # self.timers['rpn_losses'] += time.time() - relative_time
             relative_time =time.time()
             # bbox loss
-            loss_cls, loss_bbox, accuracy_cls, accuracy_neut, accuracy_cosm = fast_rcnn_heads.fast_rcnn_losses(
+            loss_cls, loss_bbox, accuracy_cls, accuracy_neut, accuracy_cosm_left, accuracy_cosm_right = fast_rcnn_heads.fast_rcnn_losses(
                 cls_score, bbox_pred, rpn_ret['labels_int32'], rpn_ret['bbox_targets'],
                 rpn_ret['bbox_inside_weights'], rpn_ret['bbox_outside_weights'])
             return_dict['losses']['loss_cls'] = loss_cls
@@ -298,8 +298,10 @@ class Generalized_RCNN(nn.Module):
             return_dict['metrics']['accuracy_cls'] = accuracy_cls
             if accuracy_neut != -1:
                 return_dict['metrics']['accuracy_cls_neut'] = accuracy_neut
-            if accuracy_cosm != -1:
-                return_dict['metrics']['accuracy_cls_cosm'] = accuracy_cosm
+            if accuracy_cosm_left != -1:
+                return_dict['metrics']['accuracy_cls_cosm_left'] = accuracy_cosm_left
+            if accuracy_cosm_right != -1:
+                return_dict['metrics']['accuracy_cls_cosm_right'] = accuracy_cosm_right
             # self.timers['bbox_cls_loss'] += time.time() - relative_time
             relative_time =time.time()
 

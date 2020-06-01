@@ -6,6 +6,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.nn.init as init
 from torch.autograd import Variable
+import utils.boxes as box_utils
 
 import numpy as np
 
@@ -45,13 +46,33 @@ class fast_rcnn_outputs(nn.Module):
         return detectron_weight_mapping, orphan_in_detectron
 
     def forward(self, x):
+        t_st = time.time()
+
+        if cfg.SYNCHRONIZE:
+            torch.cuda.synchronize
+            print('Before BoxClass')
         if x.dim() == 4:
             x = x.squeeze(3).squeeze(2)
         cls_score = self.cls_score(x)
         if not self.training and not self.validation:
             cls_score = F.softmax(cls_score, dim=1)
         bbox_pred = self.bbox_pred(x)
-
+        if cfg.SYNCHRONIZE:
+            torch.cuda.synchronize
+            print("Time taken to Predict Box Class: %.3f " % (time.time() - t_st))
+            print("After BoxClass")
+        # print("original:", rpn_ret['rpn_rois'].shape)
+        # keep_neut = box_utils.nms(np.hstack((rpn_ret['rpn_rois'][:,1:], cls_score[:,5].view(cls_score.shape[0],1))), 0.05)
+        # keep_cosmic = box_utils.nms(np.hstack((rpn_ret['rpn_rois'][:,1:], cls_score[:,1].view(cls_score.shape[0],1))), 0.99)
+        # temp = np.append(keep_neut, keep_cosmic)
+        # np.sort(temp)
+        # np.unique(temp)
+        # cls_score = cls_score[temp, :]
+        # bbox_pred = bbox_pred[temp, :]
+        # rpn_ret['rpn_rois'] = rpn_ret['rpn_rois'][temp, :]
+        # rpn_ret['rois'] = rpn_ret['rpn_rois']
+        # print("after: ", rpn_ret['rpn_rois'].shape)
+        # import pdb; pdb.set_trace()
         return cls_score, bbox_pred
 
 
@@ -64,6 +85,8 @@ def fast_rcnn_losses(cls_score, bbox_pred, label_int32, bbox_targets,
         device_id = 'cpu'
     rois_label = Variable(torch.from_numpy(label_int32.astype('int64'))).to(torch.device(device_id))
 
+    # bbox_inside_weights = bbox_inside_weights * 2
+    # bbox_outside_weights = bbox_outside_weights * 2
     bbox_targets = Variable(torch.from_numpy(bbox_targets)).to(torch.device(device_id))
     bbox_inside_weights = Variable(torch.from_numpy(bbox_inside_weights)).to(torch.device(device_id))
     bbox_outside_weights = Variable(torch.from_numpy(bbox_outside_weights)).to(torch.device(device_id))
@@ -80,64 +103,55 @@ def fast_rcnn_losses(cls_score, bbox_pred, label_int32, bbox_targets,
     numerator   = (( rois_label > 0 ).float() * cls_preds.eq(rois_label).float() ).float().sum(dim=0).float()
     denominator = (rois_label > 0 ).float().sum(dim=0).float()
 
-    num_cosm = (( rois_label == 1 ).float() * cls_preds.eq(rois_label).float() ).float().sum(dim=0).float()
+    num_cosm_left = (( rois_label == 1 ).float() * cls_preds.eq(rois_label).float() ).float().sum(dim=0).float()
+    num_cosm_right = (( rois_label == 2 ).float() * cls_preds.eq(rois_label).float() ).float().sum(dim=0).float()
     num_neut = (( rois_label == 5 ).float() * cls_preds.eq(rois_label).float() ).float().sum(dim=0).float()
-    num_back = (( rois_label == 0 ).float() * cls_preds.eq(rois_label).float() ).float().sum(dim=0).float()
 
-    den_cosm = (rois_label == 1 ).float().sum(dim=0).float()
+    den_cosm_left = (rois_label == 1 ).float().sum(dim=0).float()
+    den_cosm_right = (rois_label == 2 ).float().sum(dim=0).float()
     den_neut = (rois_label == 5 ).float().sum(dim=0).float()
-    den_back = (rois_label == 0 ).float().sum(dim=0).float()
-
     # print("My Accuracy: ", numerator/denominator.item())
     # print("Numerator: ", numerator.item())
     # print("Denominator: ", denominator.item())
 
     accuracy_cls = numerator/denominator
-    accuracy_cosm = -1
+    accuracy_cosm_left = -1
+    accuracy_cosm_right = -1
     accuracy_neut = -1
 
     if den_neut != 0:
         accuracy_neut = num_neut/den_neut
-    if den_cosm != 0:
-        accuracy_cosm = num_cosm/den_cosm
+    if den_cosm_left != 0:
+        accuracy_cosm_left = num_cosm_left/den_cosm_left
+    if den_cosm_right != 0:
+        accuracy_cosm_right = num_cosm_right/den_cosm_right
     # accuracy_cls = cls_preds.eq(rois_label).float().mean(dim=0)
     # original
     # accuracy_cls = cls_preds.eq(rois_label).float().mean(dim=0)
     neut_weight = 0
     cosmic_weight = 0
-    print("num_pred_neut: ", cls_preds.eq(5).float().sum(dim=0).float().item())
-    print("num_pred_cosm: ", cls_preds.eq(1).float().sum(dim=0).float().item())
-    print("num_pred_back: ", cls_preds.eq(0).float().sum(dim=0).float().item())
     print()
-    print("num_correct_neut: ", num_neut.item())
-    print("num_correct_cosm: ", num_cosm.item())
-    print("num_correct_back: ", num_back.item())
-    print()
-    print("den_neut: ", den_neut.item())
-    print("den_cosm: ", den_cosm.item())
-    print("den_back: ", den_back.item())
-    mult = 2. #upweight relative to background cases
-    if (den_neut ==0) or (den_cosm ==0):
-        neut_weight=1.*mult
-        cosmic_weight=1.*mult
+    print("num_neut: ", num_neut.item())
+    print("num_cosm_left: ", num_cosm_left.item())
+    print("num_cosm_right: ", num_cosm_right.item())
+    if (num_neut ==0) or (num_cosm_left+num_cosm_right ==0):
+        neut_weight=1.
+        cosmic_weight=1.
     else:
-        neut_weight= float(den_cosm)/float(den_neut+den_cosm)*mult
-        cosmic_weight= float(den_neut)/float(den_cosm+den_neut)*mult
-
-    neut_weight = 3498/194*mult #this is the num of cosmics/num neutrinos
-    cosmic_weight = 1*mult
+        neut_weight= float(num_cosm_left+num_cosm_right)/float(num_neut+num_cosm_left+num_cosm_right)
+        cosmic_weight= float(num_neut)/float(num_cosm_left+num_cosm_right+num_neut)
 
     weight = np.zeros(cls_score.shape[1],np.float32)
     weight[0] = 1
     weight[1] = cosmic_weight
+    weight[2] = cosmic_weight
     weight[5] = neut_weight
      # = np.array([1,cosmic_weight,0,0,0,neut_weight,0], np.float32)
     weight = (torch.from_numpy(weight)).to(torch.device(device_id))
     loss_cls = F.cross_entropy(cls_score,rois_label,weight)
 
 
-
-    return loss_cls, loss_bbox, accuracy_cls, accuracy_neut, accuracy_cosm
+    return loss_cls, loss_bbox, accuracy_cls, accuracy_neut, accuracy_cosm_left, accuracy_cosm_right
 
 
 # ---------------------------------------------------------------------------- #

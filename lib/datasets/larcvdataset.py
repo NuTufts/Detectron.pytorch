@@ -77,7 +77,7 @@ class LArCVDataset(object):
         # Set up dataset classes
         category_ids = [1,2,3,4,5,6]
         # category_ids = self.COCO.getCatIds()
-        categories = ['Cosmic', 'Neutron', 'Proton', 'Electron', 'Neutrino', 'Other']
+        categories = ['Cosmic_L', 'Cosmic_R', 'Proton', 'Electron', 'Neutrino', 'Other']
         # categories = [c['name'] for c in self.COCO.loadCats(category_ids)]
         self.category_to_id_map = dict(zip(categories, category_ids))
         self.classes = ['__background__'] + categories
@@ -137,8 +137,9 @@ class LArCVDataset(object):
         ###Try making my own Roidb using root file
         ###
         roidb = []
-        _files = ['/home/jmills/workdir/mask-rcnn.pytorch/data/particle_physics_train/crop_train.root']
-        # _files = ['/home/jmills/workdir/files/mcc9_nue_full_image_truth/fullimg_mask_truth.root']
+        # _files = ['/home/jmills/workdir/mask-rcnn.pytorch/data/particle_physics_train/crop_train.root']
+        _files = ['/home/jmills/workdir/files/mcc9_nue_fullimg_train/fullimg_mask_train.root']
+        # _files = ['/home/jmills/workdir/files/mcc9_nue/crop_train.root']
 
         if self.validation == True:
             _files = ['/media/disk1/jmills/crop_mask_valid/crop_valid.root']
@@ -155,7 +156,8 @@ class LArCVDataset(object):
 
         self.NUM_IMAGES=clustermask_cluster_crop_chain.GetEntries()
         print("Total Possible Entries: ", self.NUM_IMAGES)
-        self.NUM_IMAGES=100000
+        # self.NUM_IMAGES=39800
+        self.NUM_IMAGES=39800
         print("Actually Using: ", self.NUM_IMAGES)
 
         # self.NUM_IMAGES=clustermask_cluster_crop_chain.GetEntries() - 154000
@@ -237,9 +239,23 @@ class LArCVDataset(object):
 
         t0 = time.time()
         thresh = cfg.TRAIN.GT_IOU_THRESH
+        # thresh = .5
         orig_length = len(roidb)
-        if thresh >= 0.0:
-            roidb = _cull_roidb_iou(roidb, thresh)
+        # if thresh >= 0.0:
+        #     roidb = _cull_roidb_iou(roidb, thresh)
+
+        do_cut = False
+        # Example Box Cut
+        type = 0 # box cut
+        param1 = 0.7 # effavg max
+        param2 = 0.75 # puravg max
+        # Example Diagonal Cut
+        # type = 1 # line cut
+        # param1 = -0.5 # effavg max
+        # param2 = 1 # puravg max
+        if do_cut:
+            new_roidb = _cut_gt_on_eff_pur(roidb,param1,param2,type)
+            del roidb
         t1 = time.time()
         total = t1-t0
         print("Original Roidb lenth: ", orig_length)
@@ -284,6 +300,7 @@ class LArCVDataset(object):
 
     def _add_gt_annotations(self, entry, clustermask_cluster_crop_chain):
         """Add ground truth annotation metadata to an roidb entry."""
+
         clustermask_cluster_crop_chain.GetEntry(entry['id'])
         entry_clustermaskcluster_crop_data = clustermask_cluster_crop_chain.clustermask_masks_branch
         clustermaskcluster_crop_array = entry_clustermaskcluster_crop_data.as_vector()
@@ -339,9 +356,10 @@ class LArCVDataset(object):
             # print(polygon_list)
             obj['segmentation'] = polygon_list
             obj['area'] = np.sum(mask_bin_arr)
+            cut = 0
             if obj['area'] < cfg.TRAIN.GT_MIN_AREA:
+                cut = cut + 1
                 continue
-
             # Convert form (x1, y1, w, h) to (x1, y1, x2, y2)
 
             x1, y1, x2, y2 = box_utils.xywh_to_xyxy([mask_box_arr[0], mask_box_arr[1], mask_box_arr[2], mask_box_arr[3]])
@@ -377,11 +395,22 @@ class LArCVDataset(object):
                 dtype=entry['gt_keypoints'].dtype
             )
 
+        def is_cosmic_right(mask, bbox):
+            if mask[0][0] + mask[0][1] + mask[1][0] + mask[1][1] > 0 and mask[-1][-1] + mask[-1][-2] + mask[-2][-1] + mask[-2][-2] > 0:
+                return True
+            else:
+                return False
+
         im_has_visible_keypoints = False
         for ix, obj in enumerate(valid_objs):
             cls = int(larcv.as_ndarray_bbox(obj['mask'])[4])
             boxes[ix, :] = obj['clean_bbox']
             gt_classes[ix] = cls
+            if cls == 1:
+                if is_cosmic_right(larcv.as_ndarray_mask(obj['mask']), obj['clean_bbox']):
+                    gt_classes[ix] = 2
+                else:
+                    gt_classes[ix] = 1
             seg_areas[ix] = obj['area']
             is_crowd[ix] = obj['iscrowd']
             box_to_gt_ind_map[ix] = ix
@@ -399,11 +428,11 @@ class LArCVDataset(object):
                 gt_overlaps[ix, cls] = 1.0
         # print("boxes",boxes)
         entry['boxes'] = np.append(entry['boxes'], boxes, axis=0)
-        entry_ious = get_ious(entry['boxes'])
-        if len(entry['boxes']) > 1:
-            max_iou = entry_ious.max()
-        else:
-            max_iou = 0.0
+        max_iou = get_max_ious(entry['boxes'])
+        # if len(entry['boxes']) > 1:
+        #     max_iou = entry_ious
+        # else:
+        #     max_iou = 0.0
 
         entry['max_iou'] = np.append(entry['max_iou'], max_iou)
 
@@ -427,6 +456,7 @@ class LArCVDataset(object):
                 entry['gt_keypoints'], gt_keypoints, axis=0
             )
             entry['has_visible_keypoints'] = im_has_visible_keypoints
+
 
     def _add_gt_from_cache(self, roidb, cache_filepath):
         """Add ground truth annotation metadata from cached file."""
@@ -710,7 +740,20 @@ def get_ious(boxes_in):
             numpy_iou = np.append(numpy_iou, IOU)
     return numpy_iou
 
-
+def get_max_ious(boxes_in):
+    """Acquire a list of maximum IoUs across the N boxes in
+    returns N elements in a list"""
+    numpy_iou = np.zeros((0), np.float)
+    for nbox1 in range(len(boxes_in)):
+        max_iou = 0
+        for nbox2 in range(len(boxes_in)):
+            if nbox2 == nbox1:
+                continue
+            IOU = IoU(boxes_in[nbox1], boxes_in[nbox2])
+            if IOU > max_iou:
+                max_iou = IOU
+        numpy_iou = np.append(numpy_iou, max_iou)
+    return numpy_iou
 
 def IoU(box1, box2):
     """Return IoU between box1 and box2"""
@@ -798,4 +841,69 @@ def _cull_roidb_iou(roidb, thresh=0.0):
     print('Above 0.9: ',num_above_9)
 
 
+    return new_roidb
+def _cut_gt_on_eff_pur(roidb, param1=1.,param2=1.,type=0):
+    """This function takes in the roidb as a list of dictionaries
+    two parameters and a type that dictate what kind of cut to apply on the
+    efficiency purity histogram"""
+    print("Starting with Training Entries: ", len(roidb))
+    eff_thresh = -1
+    pur_thresh = -1
+    slope = -99999
+    ycept = -99999
+    if (type == 0):
+        # Box Cut Cut
+        eff_thresh = param1
+        pur_thresh = param2
+    elif (type == 1):
+        #Diagonal Cut
+        slope = param1
+        ycept = param2
+
+    if ((param1 == 1.0) and (param2 == 1.0)):
+        print("Ending with Training Entries: ", len(roidb))
+        return roidb
+    new_roidb =[]
+    eff_pur_file = ROOT.TFile("/home/fyu04/felix/Detectron.pytorch/training_effpur/Eff_Pur_0069999.root")
+    eff_pur_tree = eff_pur_file.Get("Eff_Purity_0069999")
+    num_entries = eff_pur_tree.GetEntries()
+    print(eff_pur_tree.GetEntries())
+    for entry in roidb:
+        idx = entry['id']
+        if (idx > num_entries):
+            continue
+        eff_pur_tree.GetEntry(idx)
+        ev_num_v       = eff_pur_tree.Ev_Num
+
+        # print("idx", idx, ev_num_v )
+        # purities_v     = eff_pur_tree.Purities    #length is number of predictions
+        pur_avg_v      = eff_pur_tree.Pur_Avg       #length is 1
+        # pur_iou_1_v    = eff_pur_tree.Pur_IoU_1
+        # pur_iou_2_v    = eff_pur_tree.Pur_IoU_2
+        # pred_area_v    = eff_pur_tree.Pred_Area   #length is number of predictions
+        # idx_same_v     = eff_pur_tree.Idx_Same
+        # eff_v          = eff_pur_tree.Eff         #length is number of true boxes
+        eff_avg_v       = eff_pur_tree.EffAvg        #length is 1
+        # effcharge_v    = eff_pur_tree.EffCharge   #length is number of true boxes
+        # effcharge_avg_v= eff_pur_tree.EffChargeAvg#length is 1
+        # eff_iou_1_v    = eff_pur_tree.Eff_IoU_1
+        # gt_area_v      = eff_pur_tree.GT_Area     #length is number of true boxes
+        if type==0:
+            #box cut
+            # print(eff_avg_v[0], eff_thresh, pur_avg_v[0], pur_thresh)
+            if ((eff_avg_v[0] <= eff_thresh) or (pur_avg_v[0] <= pur_thresh)):
+                # print(eff_avg_v[0],pur_avg_v[0])
+
+                #below both threshholds, save as hard example
+                new_roidb.append(entry)
+
+        if type==1:
+            #diagonal cut
+            #thresh  = mx+b
+            this_eff_thresh = slope*pur_avg_v[0] + ycept
+            if (eff_avg_v[0] <= this_eff_thresh):
+                new_roidb.append(entry)
+
+    roidb.clear()
+    print("Ending with Training Entries: ", len(new_roidb))
     return new_roidb
