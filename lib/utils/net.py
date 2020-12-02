@@ -178,7 +178,13 @@ def load_ckpt(model, ckpt):
 
 def sparsify_weight(weight, model_weight):
     if weight.shape == model_weight.shape:
-        return weight
+        return weight    
+
+    if len(weight.shape)!=len(model_weight.shape) and len(weight.shape)==3:
+        weight = weight.reshape( weight.shape[0], 1, weight.shape[1], weight.shape[2] )
+
+    if weight.shape == model_weight.shape:
+        return weight    
     else:
         return weight.permute(2,3,1,0).view(model_weight.shape)
 
